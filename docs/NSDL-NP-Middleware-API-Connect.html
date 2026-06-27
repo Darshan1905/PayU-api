@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>NSDL NP Middleware API — connect.striveedgepaints.com</title>
+	<style>
+		:root {
+			--text: #1a1a1a;
+			--muted: #5c5c5c;
+			--border: #dee2e6;
+			--code-bg: #f5f7f9;
+			--accent: #2271b1;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+			line-height: 1.55;
+			color: var(--text);
+			max-width: 900px;
+			margin: 0 auto;
+			padding: 2rem 1.5rem 3rem;
+			font-size: 15px;
+		}
+
+		h1 {
+			font-size: 1.65rem;
+			font-weight: 700;
+			margin: 0 0 0.75rem;
+			line-height: 1.25;
+			border-bottom: 2px solid var(--accent);
+			padding-bottom: 0.5rem;
+		}
+
+		.doc-meta {
+			color: var(--muted);
+			font-size: 0.9rem;
+			margin-bottom: 1.5rem;
+		}
+
+		h2 {
+			font-size: 1.2rem;
+			margin: 2rem 0 0.75rem;
+			page-break-after: avoid;
+			color: #111;
+		}
+
+		h3 {
+			font-size: 1rem;
+			margin: 1.25rem 0 0.5rem;
+			font-weight: 600;
+		}
+
+		p {
+			margin: 0.65rem 0;
+		}
+
+		.lead strong {
+			color: var(--accent);
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 0.85rem 0;
+			font-size: 14px;
+			page-break-inside: avoid;
+		}
+
+		th,
+		td {
+			border: 1px solid var(--border);
+			padding: 0.55rem 0.65rem;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		th {
+			background: #f0f4f8;
+			font-weight: 600;
+		}
+
+		tr:nth-child(even) td {
+			background: #fafbfc;
+		}
+
+		pre {
+			background: var(--code-bg);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.85rem 1rem;
+			overflow-x: auto;
+			font-family: ui-monospace, "SF Mono", Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.45;
+			margin: 0.65rem 0;
+			page-break-inside: avoid;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+		}
+
+		code {
+			font-family: ui-monospace, "SF Mono", Consolas, monospace;
+			font-size: 0.9em;
+			background: #eef1f5;
+			padding: 0.15em 0.4em;
+			border-radius: 4px;
+		}
+
+		pre code {
+			background: none;
+			padding: 0;
+		}
+
+		hr.section {
+			border: none;
+			border-top: 1px solid var(--border);
+			margin: 1.75rem 0;
+		}
+
+		.note {
+			font-size: 0.92rem;
+			color: var(--muted);
+			font-style: italic;
+			margin-top: 0.5rem;
+		}
+
+		ol.intro {
+			margin: 0.5rem 0 0;
+			padding-left: 1.25rem;
+		}
+
+		.print-hint {
+			background: #e8f2fc;
+			border-left: 4px solid var(--accent);
+			padding: 0.65rem 1rem;
+			margin: 1.5rem 0;
+			border-radius: 0 6px 6px 0;
+			font-size: 14px;
+		}
+
+		@media print {
+			body {
+				padding: 0.5in;
+				max-width: none;
+				font-size: 11pt;
+			}
+
+			.print-hint,
+			.no-print {
+				display: none !important;
+			}
+
+			h2 {
+				page-break-before: auto;
+			}
+
+			section {
+				page-break-inside: avoid;
+			}
+
+			a {
+				color: inherit;
+				text-decoration: none;
+			}
+		}
+	</style>
+</head>
+<body>
+
+
+    <section id="initiate">
+        <h1>NSDL NP Middleware API<br /><span style="font-size: 0.82em; font-weight: 500; color: var(--muted)">Production reference — connect.striveedgepaints.com</span></h1>
+		<h2>1) Initiate payment</h2>
+		<p><strong>Purpose:</strong> Start a collect / obtain payment links.</p>
+		<h3>Method / URL</h3>
+<pre><code>POST https://connect.striveedgepaints.com/api/nsdl-np/initiate</code></pre>
+
+		<h3>Headers</h3>
+		<table>
+			<thead><tr><th>Header</th><th>Value</th></tr></thead>
+			<tbody>
+				<tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+				<tr><td><code>Accept</code></td><td><code>application/json</code></td></tr>
+				<tr><td><code>X-API-Key</code></td><td><code>nsdl-np-demo-local-key</code> (or your client key)</td></tr>
+			</tbody>
+		</table>
+
+		<h3>Body fields (JSON)</h3>
+		<table>
+			<thead><tr><th>Field</th><th>Required</th><th>Notes</th></tr></thead>
+			<tbody>
+				<tr><td><code>requestAmount</code></td><td>Yes</td><td>Number ≥ <code>0.01</code></td></tr>
+				<tr><td><code>collect_ref</code></td><td>No</td><td>Max 30 chars; omit to let upstream generate</td></tr>
+				<tr><td><code>user_ref</code></td><td>No</td><td>Max 50 chars</td></tr>
+				<tr><td><code>display_name</code></td><td>No</td><td>Max 200 chars</td></tr>
+				<tr><td><code>transaction_note</code></td><td>No</td><td>Max 500 chars</td></tr>
+				<tr><td><code>remarks</code></td><td>No</td><td>Max 500; used if <code>transaction_note</code> empty</td></tr>
+			</tbody>
+		</table>
+
+		<h3>Example body</h3>
+<pre><code>{
+  "collect_ref": "TESTREF001",
+  "requestAmount": "10.50",
+  "user_ref": "custuser01",
+  "display_name": "Test Customer",
+  "transaction_note": "Order note",
+}</code></pre>
+
+		<h3>Success response (HTTP 200)</h3>
+<pre><code>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Payment link generated",
+  "data": {
+    "collectRef": "&lt;string&gt;",
+    "transactionId": "&lt;string|null&gt;",
+    "paymentUrl": "&lt;string|null&gt;",
+    "intentUrl": "&lt;string|null&gt;",
+    "hostedUrl": "&lt;string|null&gt;",
+    "paymentOptions": []
+  }
+}</code></pre>
+		<p class="note">Exact <code>data</code> depends on NSDL/NineteenPay response.</p>
+
+		<h3>Example failure (no callback)</h3>
+<pre><code>{
+  "status": false,
+  "respCode": 4001,
+  "respMessage": "callbackUrl is required. Pass in request body or configure for your API key."
+}</code></pre>
+	</section>
+
+	<hr class="section" />
+
+	<section id="status">
+		<h2>2) Status by collect reference</h2>
+<pre><code>POST https://connect.striveedgepaints.com/api/nsdl-np/status</code></pre>
+		<p><strong>Headers</strong> — same as section 1 (<code>Content-Type</code>, <code>Accept</code>, <code>X-API-Key</code>).</p>
+		<h3>Body</h3>
+<pre><code>{
+  "collect_ref": "YOUR_COLLECT_REF_FROM_INITIATE"
+}</code></pre>
+		<table><thead><tr><th>Field</th><th>Required</th></tr></thead>
+		<tbody><tr><td><code>collect_ref</code></td><td>Yes (max 64 chars)</td></tr></tbody></table>
+
+		<h3>Success response (HTTP 200)</h3>
+<pre><code>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Transaction status fetched successfully",
+  "paid": false,
+  "data": {}
+}</code></pre>
+		<p class="note"><code>paid</code> is boolean; <code>data</code> follows upstream status payload.</p>
+	</section>
+
+	<hr class="section" />
+
+	<section id="link-details">
+		<h2>3) Link details (batch CRNs)</h2>
+<pre><code>POST https://connect.striveedgepaints.com/api/nsdl-np/link-details</code></pre>
+		<p><strong>Headers</strong> — same as section 1.</p>
+<pre><code>{
+  "crn_arr": ["CRN12345", "CRN67890"]
+}</code></pre>
+		<table><thead><tr><th>Field</th><th>Required</th></tr></thead>
+		<tbody><tr><td><code>crn_arr</code></td><td>Yes — non-empty array of strings (max 64 each)</td></tr></tbody></table>
+
+		<h3>Success response (HTTP 200)</h3>
+<pre><code>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "OK",
+  "data": {}
+}</code></pre>
+	</section>
+
+	<hr class="section" />
+
+	<section id="notifications">
+		<h2>4) List stored webhook notifications</h2>
+<pre><code>GET https://connect.striveedgepaints.com/api/nsdl-np/notifications?limit=20</code></pre>
+		<h3>Headers</h3>
+		<table>
+			<tbody>
+				<tr><td><code>Accept</code></td><td><code>application/json</code></td></tr>
+				<tr><td><code>X-API-Key</code></td><td>Your API key</td></tr>
+			</tbody>
+		</table>
+		<p>No body.</p>
+		<h3>Query</h3>
+		<table><thead><tr><th>Param</th><th>Default</th><th>Max</th></tr></thead>
+		<tbody><tr><td><code>limit</code></td><td>50</td><td>100</td></tr></tbody></table>
+
+		<h3>Success response (HTTP 200)</h3>
+<pre><code>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Notifications fetched",
+  "data": [
+    {
+      "id": 1,
+      "collectRef": "...",
+      "transactionId": "...",
+      "status": "...",
+      "statusMessage": "...",
+      "utr": "...",
+      "paymentMode": "...",
+      "requestAmount": "...",
+      "remarks": "...",
+      "processed": false,
+      "forwardedTo": "...",
+      "createdAt": "2026-01-01T12:00:00+00:00"
+    }
+  ]
+}</code></pre>
+	</section>
+
+	<hr class="section" />
+
+	<section id="webhook">
+		<h2>5) Provider webhook (inbound — NSDL/NineteenPay)</h2>
+		<p>Not under <code>/api/</code>. Register this URL with the payment provider.</p>
+<pre><code>POST https://connect.striveedgepaints.com/webhook/nsdl-np</code></pre>
+
+		<h3>Headers</h3>
+		<table>
+			<thead><tr><th>Header</th><th>When</th></tr></thead>
+			<tbody>
+				<tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+				<tr><td><code>X-TSP-Timestamp</code></td><td>If <code>NSDL_NP_WEBHOOK_SECRET</code> is set in Laravel</td></tr>
+				<tr><td><code>X-TSP-Signature</code></td><td>HMAC-SHA256 hex of <code>timestamp + '.' + raw_body</code> with webhook secret</td></tr>
+			</tbody>
+		</table>
+		<p>If <code>NSDL_NP_WEBHOOK_SECRET</code> is empty, signature headers are not required.</p>
+
+		<h3>Example body</h3>
+<pre><code>{
+  "collectRef": "CRN12345",
+  "transactionId": "TXN_SIMULATED",
+  "status": "SUCCESS",
+  "requestAmount": "10.50",
+  "utr": "405812345678"
+}</code></pre>
+
+		<h3>Typical success (HTTP 200)</h3>
+<pre><code>{
+  "success": true,
+  "message": "Notification received"
+}</code></pre>
+	</section>
+
+	<hr class="section" />
+
+	<section id="postman">
+		<h2>Postman — production variables</h2>
+		<ol>
+			<li>Open the collection → <strong>Variables</strong>.</li>
+			<li>Set <code>middleware_base_url</code> = <code>https://connect.striveedgepaints.com</code></li>
+			<li>Set <code>middleware_api_key</code> = your key</li>
+			<li>Run requests <strong>1 → 4</strong> in order; copy <code>collectRef</code> from initiate into status/link-details.</li>
+		</ol>
+	</section>
+
+	<section id="env">
+		<h2>Related server configuration (.env)</h2>
+		<table>
+			<thead><tr><th>Variable</th><th>Role</th></tr></thead>
+			<tbody>
+				<tr><td><code>API_ALLOWED_IPS</code></td><td>IPs allowed to call <code>/api/nsdl-np/*</code></td></tr>
+				<tr><td><code>NSDL_NP_PROXY_URL</code></td><td>Laravel calls WordPress proxy instead of NineteenPay directly</td></tr>
+				<tr><td><code>NSDL_NP_KEY</code> / <code>NSDL_NP_SALT</code></td><td>Direct mode to nineteenapis (when not using proxy)</td></tr>
+				<tr><td><code>NSDL_NP_WEBHOOK_SECRET</code></td><td>Validates inbound webhooks (<code>X-TSP-*</code>)</td></tr>
+			</tbody>
+		</table>
+	</section>
+
+	<p class="note" style="margin-top: 2rem;">Integration reference — behavior follows <code>routes/api.php</code>, <code>NsdlNpController</code>, <code>ApiKeyAuth</code>, <code>IpWhitelist</code>, and <code>WebhookController</code>.</p>
+</body>
+</html>

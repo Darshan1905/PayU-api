@@ -1,0 +1,145 @@
+{
+  "info": {
+    "name": "PayU Direct v2 — Hosted Checkout test (no middleware)",
+    "description": "Hit PayU production API directly from Postman to test v2 Hosted Checkout (non-seamless).\n\n**Does NOT use** Client ID / Client Secret.\nUses **Merchant Key + Salt** HMAC per https://docs.payu.in/v2/reference/v2_authentication_with_payu_apis\n\n**How to interpret:**\n- HTTP 200 + `result.checkoutUrl` → Hosted checkout is working; open URL in browser\n- HTTP 403 + CloudFront HTML → blocked at CDN (IP / WAF)\n- HTTP 4xx + JSON `message` → PayU API reached; read error text\n\nSet collection variables before sending. Change `txnId` each run (must be unique).",
+    "_postman_id": "payu-direct-v2-hosted-test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "payu_api_base", "value": "https://api.payu.in" },
+    { "key": "merchant_key", "value": "G3ruee" },
+    { "key": "merchant_salt", "value": "YOUR_SALT_HERE" },
+    { "key": "merchant_mid", "value": "13678525" },
+    { "key": "txn_id", "value": "PKTEST{{$timestamp}}" },
+    { "key": "postservice_url", "value": "https://info.payu.in/merchant/postservice?form=2" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const key = pm.collectionVariables.get('merchant_key');",
+          "const salt = pm.collectionVariables.get('merchant_salt');",
+          "if (!key || !salt || salt === 'YOUR_SALT_HERE') {",
+          "  console.warn('Set merchant_key and merchant_salt in collection variables');",
+          "}",
+          "const date = new Date().toUTCString();",
+          "pm.collectionVariables.set('payu_date', date);",
+          "const raw = pm.request.body && pm.request.body.mode === 'raw' ? pm.request.body.raw : '';",
+          "if (raw && salt && salt !== 'YOUR_SALT_HERE') {",
+          "  const hashString = raw + '|' + date + '|' + salt;",
+          "  const signature = CryptoJS.SHA512(hashString).toString(CryptoJS.enc.Hex);",
+          "  const auth = 'hmac username=\"' + key + '\", algorithm=\"sha512\", headers=\"date\", signature=\"' + signature + '\"';",
+          "  pm.collectionVariables.set('payu_authorization', auth);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1) Hosted Checkout — Initiate (same as plugin)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const txnId = 'PKTEST' + Date.now();",
+              "pm.collectionVariables.set('txn_id', txnId);",
+              "const body = {",
+              "  accountId: pm.collectionVariables.get('merchant_key'),",
+              "  txnId: txnId,",
+              "  order: {",
+              "    productInfo: 'Postman Hosted Checkout test',",
+              "    paymentChargeSpecification: { price: 10.50, netAmountDebit: 10.50 }",
+              "    userDefinedFields: { udf1: 'postman-test' }",
+              "  },",
+              "  additionalInfo: { txnFlow: 'nonseamless', createOrder: true },",
+              "  callBackActions: {",
+              "    successAction: 'https://pavokart.com/wp-json/payu/v1/callback/success',",
+              "    failureAction: 'https://pavokart.com/wp-json/payu/v1/callback/failure',",
+              "    cancelAction: 'https://pavokart.com/wp-json/payu/v1/callback/failure'",
+              "  },",
+              "  billingDetails: {",
+              "    firstName: 'Test', phone: '9876543210', email: 'test@pavokart.com',",
+              "    address1: 'India', country: 'India'",
+              "  }",
+              "};",
+              "const raw = JSON.stringify(body);",
+              "pm.request.body.update(raw);",
+              "const date = new Date().toUTCString();",
+              "pm.collectionVariables.set('payu_date', date);",
+              "const salt = pm.collectionVariables.get('merchant_salt');",
+              "const key = pm.collectionVariables.get('merchant_key');",
+              "const hashString = raw + '|' + date + '|' + salt;",
+              "const signature = CryptoJS.SHA512(hashString).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set('payu_authorization', 'hmac username=\"' + key + '\", algorithm=\"sha512\", headers=\"date\", signature=\"' + signature + '\"');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "const url = json && json.result && (json.result.checkoutUrl || json.result.redirectUrl);",
+              "if (url) console.log('Open checkout URL in browser:', url);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "date", "value": "{{payu_date}}" },
+          { "key": "authorization", "value": "{{payu_authorization}}" },
+          { "key": "mid", "value": "{{merchant_mid}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": "{{payu_api_base}}/v2/payments"
+      }
+    },
+    {
+      "name": "2) Verify payment status (postservice)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const key = pm.collectionVariables.get('merchant_key');",
+              "const salt = pm.collectionVariables.get('merchant_salt');",
+              "const txnId = pm.collectionVariables.get('txn_id');",
+              "const hash = CryptoJS.SHA512(key + '|verify_payment|' + txnId + '|' + salt).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set('verify_hash', hash);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "key", "value": "{{merchant_key}}" },
+            { "key": "command", "value": "verify_payment" },
+            { "key": "var1", "value": "{{txn_id}}" },
+            { "key": "hash", "value": "{{verify_hash}}" }
+          ]
+        },
+        "url": "{{postservice_url}}"
+      }
+    }
+  ]
+}

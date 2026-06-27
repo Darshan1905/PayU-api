@@ -1,0 +1,437 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class PayuService
+{
+    private ?string $proxyUrl;
+
+    private string $proxySecret;
+
+    private bool $wpLogEnabled;
+
+    private ?string $wpLogUrl;
+
+    private string $wpLogSecret;
+
+    private string $apiBase;
+
+    private string $postserviceUrl;
+
+    private string $merchantKey;
+
+    private string $merchantSalt;
+
+    private string $merchantMid;
+
+    public function __construct()
+    {
+        $p = trim((string) config('payu.proxy_url'));
+        $this->proxyUrl = $p !== '' ? rtrim($p, '/') : null;
+        $this->proxySecret = trim((string) config('payu.proxy_secret'));
+        $this->wpLogEnabled = (bool) config('payu.wp_log_enabled', false);
+        $wl = trim((string) config('payu.wp_log_url', ''));
+        $this->wpLogUrl = $wl !== '' ? $wl : null;
+        $this->wpLogSecret = trim((string) config('payu.wp_log_secret', ''));
+        $this->apiBase = rtrim((string) config('payu.api_base'), '/');
+        $this->postserviceUrl = trim((string) config('payu.postservice_url'));
+        $this->merchantKey = trim((string) config('payu.merchant_key'));
+        $this->merchantSalt = trim((string) config('payu.merchant_salt'));
+        $this->merchantMid = trim((string) config('payu.merchant_mid'));
+    }
+
+    private function useProxy(): bool
+    {
+        return $this->proxyUrl !== null;
+    }
+
+    /**
+     * @return \Illuminate\Http\Client\PendingRequest
+     */
+    private function proxyHttp(int $timeoutSeconds = 30)
+    {
+        $req = Http::timeout($timeoutSeconds)->acceptJson()->asJson();
+        if ($this->proxySecret !== '') {
+            $req = $req->withHeader('X-PayU-Middleware-Secret', $this->proxySecret);
+        }
+
+        return $req;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function pushWpLog(string $event, array $context = []): void
+    {
+        if (! $this->wpLogEnabled || $this->wpLogUrl === null) {
+            return;
+        }
+        try {
+            $req = Http::timeout(8)->acceptJson()->asJson();
+            if ($this->wpLogSecret !== '') {
+                $req = $req->withHeader('X-PayU-Middleware-Secret', $this->wpLogSecret);
+            }
+            $req->post($this->wpLogUrl, [
+                'source' => 'laravel-middleware',
+                'event' => $event,
+                'mode' => $this->useProxy() ? 'proxy' : 'direct',
+                'context' => $context,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('payu.wp_log_ingest_failed', ['event' => $event, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{success: bool, message?: string, data?: array<string,mixed>}
+     */
+    public function initiate(array $payload): array
+    {
+        $amount = (float) ($payload['requestAmount'] ?? 0);
+        if ($amount <= 0) {
+            return ['success' => false, 'message' => 'Amount must be greater than zero.'];
+        }
+
+        $txnId = isset($payload['txnId']) ? $this->sanitizeTxnId((string) $payload['txnId']) : '';
+        if ($txnId === '' && isset($payload['txn_ref'])) {
+            $txnId = $this->sanitizeTxnId((string) $payload['txn_ref']);
+        }
+        if ($txnId === '') {
+            $txnId = $this->generateTxnId();
+        }
+
+        if ($this->useProxy()) {
+            $callback = config('payu.callback_url') ?: url('/webhook/payu');
+
+            return $this->initiateViaProxy([
+                'txnId' => $txnId,
+                'requestAmount' => round($amount, 2),
+                'productInfo' => $payload['productInfo'] ?? $payload['remarks'] ?? 'Payment',
+                'firstName' => $payload['firstName'] ?? $payload['display_name'] ?? 'Customer',
+                'email' => $payload['email'] ?? '',
+                'phone' => $payload['phone'] ?? '',
+                'address1' => $payload['address1'] ?? 'India',
+                'remarks' => $payload['remarks'] ?? '',
+                'udf1' => $payload['udf1'] ?? '',
+                'successCallbackUrl' => $callback,
+                'failureCallbackUrl' => $callback,
+            ]);
+        }
+
+        return $this->initiateDirect($txnId, $amount, $payload);
+    }
+
+    /**
+     * @param  array<string,mixed>  $body
+     * @return array{success: bool, message?: string, data?: array<string,mixed>}
+     */
+    private function initiateViaProxy(array $body): array
+    {
+        $url = $this->proxyUrl.'/wp-json/payu/v1/initiate-payment';
+        $this->pushWpLog('initiate_request', ['url' => $url, 'body' => $body]);
+        $response = $this->proxyHttp(30)->post($url, $body);
+        $code = $response->status();
+        $res = $response->json();
+        $this->pushWpLog('initiate_response', ['http_code' => $code, 'body' => is_array($res) ? $res : $response->body()]);
+
+        if (! is_array($res)) {
+            return ['success' => false, 'message' => sprintf('Invalid proxy response (HTTP %d).', $code), 'http_code' => $code];
+        }
+
+        return $this->unwrapProxyInitiate($res, $body);
+    }
+
+    /**
+     * @param  array<string,mixed>  $res
+     * @param  array<string,mixed>  $bodySent
+     * @return array{success: bool, message?: string, data?: array<string,mixed>}
+     */
+    private function unwrapProxyInitiate(array $res, array $bodySent): array
+    {
+        if (empty($res['success'])) {
+            return [
+                'success' => false,
+                'message' => is_string($res['message'] ?? null) ? $res['message'] : 'Initiate payment failed.',
+            ];
+        }
+        $d = $res['data'] ?? [];
+        if (! is_array($d)) {
+            return ['success' => false, 'message' => 'Invalid proxy response shape.'];
+        }
+
+        $checkoutUrl = (string) ($d['checkoutUrl'] ?? '');
+        $payUrl = (string) ($d['paymentUrl'] ?? '');
+        if ($checkoutUrl === '' && $payUrl === '') {
+            return ['success' => false, 'message' => 'No checkout URL from proxy.'];
+        }
+        if ($checkoutUrl === '') {
+            $checkoutUrl = $payUrl;
+        }
+        if ($payUrl === '') {
+            $payUrl = $checkoutUrl;
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'txnId' => (string) ($d['txnId'] ?? $bodySent['txnId'] ?? ''),
+                'paymentId' => (string) ($d['paymentId'] ?? ''),
+                'checkoutUrl' => $checkoutUrl,
+                'paymentUrl' => $payUrl,
+                'amount' => (string) ($d['amount'] ?? ''),
+                'status' => (string) ($d['status'] ?? 'PENDING'),
+                'raw' => $d['raw'] ?? $d,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{success: bool, message?: string, data?: array<string,mixed>}
+     */
+    private function initiateDirect(string $txnId, float $amount, array $payload): array
+    {
+        if ($this->merchantKey === '' || $this->merchantSalt === '') {
+            return ['success' => false, 'message' => 'PayU merchant key/salt not configured (or set PAYU_PROXY_URL).'];
+        }
+
+        $callback = config('payu.callback_url') ?: url('/webhook/payu');
+        $firstName = (string) ($payload['firstName'] ?? $payload['display_name'] ?? 'Customer');
+        $lastName = (string) ($payload['lastName'] ?? '');
+        $phone = preg_replace('/\D+/', '', (string) ($payload['phone'] ?? '9999999999'));
+        if (strlen($phone) < 10) {
+            $phone = '9999999999';
+        }
+        $email = (string) ($payload['email'] ?? 'customer@example.com');
+        if ($email === '') {
+            $email = 'customer@example.com';
+        }
+
+        $billing = [
+            'firstName' => $firstName,
+            'phone' => $phone,
+            'email' => $email,
+            'address1' => (string) ($payload['address1'] ?? 'India'),
+            'country' => 'India',
+        ];
+        if ($lastName !== '') {
+            $billing['lastName'] = $lastName;
+        }
+
+        $body = [
+            'accountId' => $this->merchantKey,
+            'txnId' => $txnId,
+            'order' => [
+                'productInfo' => (string) ($payload['productInfo'] ?? $payload['remarks'] ?? 'Payment'),
+                'paymentChargeSpecification' => [
+                    'price' => round($amount, 2),
+                    'netAmountDebit' => round($amount, 2),
+                ],
+                'userDefinedFields' => [
+                    'udf1' => (string) ($payload['udf1'] ?? ''),
+                ],
+            ],
+            'additionalInfo' => [
+                'txnFlow' => 'nonseamless',
+                'createOrder' => true,
+            ],
+            'callBackActions' => [
+                'successAction' => $callback,
+                'failureAction' => $callback,
+                'cancelAction' => $callback,
+            ],
+            'billingDetails' => $billing,
+        ];
+
+        $result = $this->postV2Payments($body);
+        if (! ($result['success'] ?? false)) {
+            return $result;
+        }
+
+        return $this->parsePaymentResponse($result['data'], $txnId, $amount);
+    }
+
+    /**
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, paid?: bool, status?: string, raw?: array<string,mixed>}
+     */
+    public function status(string $txnId): array
+    {
+        $txnId = $this->sanitizeTxnId($txnId);
+        if ($txnId === '') {
+            return ['success' => false, 'message' => 'txnId is required.'];
+        }
+
+        if ($this->useProxy()) {
+            return $this->statusViaProxy($txnId);
+        }
+
+        return $this->statusDirect($txnId);
+    }
+
+    /**
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, paid?: bool, status?: string, raw?: array<string,mixed>}
+     */
+    private function statusViaProxy(string $txnId): array
+    {
+        $url = $this->proxyUrl.'/wp-json/payu/v1/status';
+        $this->pushWpLog('status_request', ['url' => $url, 'txnId' => $txnId]);
+        $response = $this->proxyHttp(15)->post($url, ['txnId' => $txnId]);
+        $code = $response->status();
+        $res = $response->json();
+        $this->pushWpLog('status_response', ['http_code' => $code, 'body' => is_array($res) ? $res : $response->body()]);
+
+        if ($code !== 200 || ! is_array($res) || empty($res['success'])) {
+            $msg = is_array($res) && isset($res['message']) ? (string) $res['message'] : 'Status check failed.';
+
+            return ['success' => false, 'message' => $msg, 'http_code' => $code];
+        }
+
+        $data = isset($res['data']) && is_array($res['data']) ? $res['data'] : [];
+        $status = strtolower((string) ($res['status'] ?? $data['status'] ?? ''));
+        $paid = (bool) ($res['paid'] ?? false) || in_array($status, ['success', 'captured'], true);
+
+        return [
+            'success' => true,
+            'paid' => $paid,
+            'status' => $status,
+            'data' => array_merge($data, ['txnId' => $txnId, 'status' => $status]),
+            'raw' => isset($res['raw']) && is_array($res['raw']) ? $res['raw'] : [],
+        ];
+    }
+
+    /**
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, paid?: bool, status?: string, raw?: array<string,mixed>}
+     */
+    private function statusDirect(string $txnId): array
+    {
+        if ($this->merchantKey === '' || $this->merchantSalt === '') {
+            return ['success' => false, 'message' => 'PayU credentials not configured.'];
+        }
+
+        $hash = hash('sha512', $this->merchantKey.'|verify_payment|'.$txnId.'|'.$this->merchantSalt);
+        $response = Http::timeout(20)->asForm()->post($this->postserviceUrl, [
+            'key' => $this->merchantKey,
+            'command' => 'verify_payment',
+            'var1' => $txnId,
+            'hash' => $hash,
+        ]);
+
+        $data = $response->json();
+        if (! is_array($data)) {
+            return ['success' => false, 'message' => 'Invalid status response.'];
+        }
+
+        $paid = false;
+        $status = '';
+        $row = [];
+        if (! empty($data['transaction_details']) && is_array($data['transaction_details'])) {
+            $details = $data['transaction_details'];
+            $row = isset($details[$txnId]) && is_array($details[$txnId]) ? $details[$txnId] : (is_array(reset($details)) ? reset($details) : []);
+            $status = strtolower((string) ($row['status'] ?? ''));
+            $paid = in_array($status, ['success', 'captured'], true);
+        }
+
+        return [
+            'success' => true,
+            'paid' => $paid,
+            'status' => $status,
+            'data' => array_merge(is_array($row) ? $row : [], ['txnId' => $txnId, 'status' => $status]),
+            'raw' => $data,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $body
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, http_code?: int, raw?: array<string,mixed>}
+     */
+    private function postV2Payments(array $body): array
+    {
+        $json = json_encode($body, JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return ['success' => false, 'message' => 'Could not encode request.'];
+        }
+
+        $date = gmdate('D, d M Y H:i:s').' GMT';
+        $sig = hash('sha512', $json.'|'.$date.'|'.$this->merchantSalt);
+        $auth = sprintf('hmac username="%s", algorithm="sha512", headers="date", signature="%s"', $this->merchantKey, $sig);
+
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'date' => $date,
+            'authorization' => $auth,
+        ];
+        if ($this->merchantMid !== '') {
+            $headers['mid'] = $this->merchantMid;
+        }
+
+        $url = $this->apiBase.'/v2/payments';
+        $response = Http::timeout(30)->withHeaders($headers)->withBody($json, 'application/json')->post($url);
+        $code = $response->status();
+        $data = $response->json();
+
+        if (! is_array($data)) {
+            return ['success' => false, 'message' => sprintf('Invalid JSON (HTTP %d).', $code), 'http_code' => $code];
+        }
+        if ($code < 200 || $code >= 300) {
+            return [
+                'success' => false,
+                'message' => (string) ($data['message'] ?? $data['error'] ?? 'PayU request failed.'),
+                'http_code' => $code,
+                'raw' => $data,
+            ];
+        }
+
+        return ['success' => true, 'data' => $data, 'http_code' => $code];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array{success: bool, message?: string, data?: array<string,mixed>}
+     */
+    private function parsePaymentResponse(array $data, string $txnId, float $amount): array
+    {
+        $result = isset($data['result']) && is_array($data['result']) ? $data['result'] : $data;
+        $checkoutUrl = '';
+
+        foreach (['checkoutUrl', 'redirectUrl', 'paymentUrl'] as $key) {
+            if (! empty($result[$key]) && is_string($result[$key]) && filter_var($result[$key], FILTER_VALIDATE_URL)) {
+                $checkoutUrl = $result[$key];
+                break;
+            }
+        }
+
+        if ($checkoutUrl === '') {
+            return ['success' => false, 'message' => 'PayU did not return a checkout URL.', 'raw' => $data];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'txnId' => $txnId,
+                'paymentId' => (string) ($result['paymentId'] ?? ''),
+                'checkoutUrl' => $checkoutUrl,
+                'paymentUrl' => $checkoutUrl,
+                'amount' => number_format($amount, 2, '.', ''),
+                'status' => (string) ($data['status'] ?? 'PENDING'),
+                'raw' => $data,
+            ],
+        ];
+    }
+
+    private function sanitizeTxnId(string $txnId): string
+    {
+        $txnId = preg_replace('/[^A-Za-z0-9._-]/', '', $txnId) ?? '';
+
+        return substr($txnId, 0, 50);
+    }
+
+    private function generateTxnId(): string
+    {
+        return $this->sanitizeTxnId('PK'.gmdate('YmdHis').bin2hex(random_bytes(2)));
+    }
+}

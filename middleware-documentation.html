@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayU Hosted Checkout Middleware API Documentation</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #0d9488;
+      --primary-dark: #0f766e;
+      --border: #e5e7eb;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --warn: #b45309;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .container { max-width: 980px; margin: 0 auto; padding: 28px 20px 48px; }
+    .hero {
+      background: linear-gradient(135deg, #0f766e, #14b8a6);
+      color: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 24px rgba(15, 118, 110, 0.25);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 30px; }
+    .hero p { margin: 0; opacity: 0.95; }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .meta-item {
+      background: rgba(255,255,255,0.14);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    .meta-item .value { display: block; margin-top: 4px; font-weight: 700; word-break: break-all; }
+    .section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 14px;
+    }
+    h2 { margin: 0 0 10px; font-size: 22px; }
+    h3 { margin: 22px 0 8px; font-size: 18px; }
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      margin-right: 8px;
+    }
+    .pill.get { background: #059669; }
+    .endpoint {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 14px;
+      color: var(--primary-dark);
+      background: #ecfdf5;
+      border: 1px solid #99f6e4;
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin: 8px 0 12px;
+      word-break: break-all;
+    }
+    .note {
+      border-left: 4px solid var(--warn);
+      background: #fffbeb;
+      color: #78350f;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 14px; }
+    th, td { border: 1px solid var(--border); text-align: left; padding: 8px 10px; vertical-align: top; }
+    th { background: #f9fafb; }
+    pre {
+      margin: 8px 0 14px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 13px;
+    }
+    code {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      padding: 1px 6px;
+    }
+    .footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>PayU Hosted Checkout Middleware API</h1>
+      <p>PayU v2 Hosted Checkout (non-seamless) with WordPress proxy on pavokart.com</p>
+      <div class="meta">
+        <div class="meta-item"><strong>Version</strong><span class="value">1.1.0</span></div>
+        <div class="meta-item"><strong>Local Base URL</strong><span class="value">http://127.0.0.1:8000</span></div>
+        <div class="meta-item"><strong>Auth Header</strong><span class="value">X-API-Key</span></div>
+        <div class="meta-item"><strong>WordPress Proxy</strong><span class="value">https://pavokart.com</span></div>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Architecture</h2>
+      <p>Middleware runs on your server (local / AWS Lightsail). PayU credentials live on <strong>pavokart.com</strong> WordPress plugin. Middleware calls WordPress REST, which calls PayU production API.</p>
+      <pre>Client → POST /api/payu/initiate (X-API-Key)
+       → https://pavokart.com/wp-json/payu/v1/initiate-payment
+       → https://api.payu.in/v2/payments
+       → checkoutUrl returned — redirect customer to PayU hosted page</pre>
+    </section>
+
+    <section class="section">
+      <h2>Authentication</h2>
+      <p><strong>Demo API Key (after <code>php artisan db:seed</code>):</strong> <code>payu-pavokart-demo-key</code></p>
+      <table>
+        <thead><tr><th>Header</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+          <tr><td><code>X-API-Key</code></td><td><code>payu-pavokart-demo-key</code></td></tr>
+        </tbody>
+      </table>
+      <p>Alternatives: <code>Authorization: Bearer &lt;key&gt;</code> or <code>api_key</code> in JSON body.</p>
+      <div class="note">
+        <strong>IP whitelist:</strong> Set <code>API_ALLOWED_IPS</code> in Laravel <code>.env</code>. For local Postman use <code>127.0.0.1,::1</code>. On AWS Lightsail add your client server public IP.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Endpoints</h2>
+
+      <h3><span class="pill">POST</span>Initiate Payment</h3>
+      <div class="endpoint">POST /api/payu/initiate</div>
+      <table>
+        <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>requestAmount</td><td>Yes</td><td>Amount in INR (min 0.01)</td></tr>
+          <tr><td>txnId / txn_ref</td><td>No</td><td>Your reference (auto-generated if omitted)</td></tr>
+          <tr><td>firstName / display_name</td><td>No</td><td>Customer name</td></tr>
+          <tr><td>email, phone</td><td>No</td><td>Billing contact</td></tr>
+          <tr><td>productInfo / remarks</td><td>No</td><td>Order description</td></tr>
+          <tr><td>callbackUrl</td><td>Conditional</td><td>Required unless set on client API key record</td></tr>
+        </tbody>
+      </table>
+      <pre>{
+  "requestAmount": 499.00,
+  "productInfo": "Order PK123",
+  "firstName": "Prince",
+  "email": "customer@example.com",
+  "phone": "9070116411",
+  "callbackUrl": "https://your-app.com/payu/webhook"
+}</pre>
+      <pre>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Payment link generated",
+  "data": {
+    "txnId": "PK123T260623120001",
+    "paymentId": "21667772394",
+    "checkoutUrl": "https://secure.payu.in/_payment_options?mihpayid=...",
+    "paymentUrl": "https://secure.payu.in/_payment_options?mihpayid=...",
+    "amount": "499.00",
+    "status": "PENDING"
+  }
+}</pre>
+
+      <h3><span class="pill">POST</span>Transaction Status</h3>
+      <div class="endpoint">POST /api/payu/status</div>
+      <pre>{ "txnId": "PK123T260623120001" }</pre>
+      <pre>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Transaction status fetched successfully",
+  "paid": true,
+  "data": {
+    "txnId": "PK123T260623120001",
+    "status": "success",
+    "mihpayid": "21667772394"
+  }
+}</pre>
+
+      <h3><span class="pill get">GET</span>Notifications</h3>
+      <div class="endpoint">GET /api/payu/notifications?limit=50</div>
+    </section>
+
+    <section class="section">
+      <h2>PayU Webhook (middleware)</h2>
+      <div class="endpoint">POST /webhook/payu</div>
+      <p>Register this public URL in PayU callback settings when using direct mode. In proxy mode, PayU callbacks hit WordPress first; middleware receives relay when configured.</p>
+      <p>No <code>X-API-Key</code> on this route.</p>
+    </section>
+
+    <section class="section">
+      <h2>WordPress Plugin Setup (pavokart.com)</h2>
+      <ol>
+        <li>Install <code>payu-payment-gateway</code> plugin</li>
+        <li>WooCommerce → PayU Hosted → enter Merchant Key + Salt</li>
+        <li>Set <strong>Middleware proxy secret</strong> (same as <code>PAYU_PROXY_SECRET</code> in Laravel)</li>
+        <li>Enable PayU Hosted under WooCommerce → Payments</li>
+      </ol>
+      <table>
+        <thead><tr><th>WP REST endpoint</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>/wp-json/payu/v1/initiate-payment</code></td><td>Middleware proxy initiate</td></tr>
+          <tr><td><code>/wp-json/payu/v1/status</code></td><td>Middleware proxy status</td></tr>
+          <tr><td><code>/wp-json/payu/v1/callback/success</code></td><td>WooCommerce PayU success</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Error Codes</h2>
+      <table>
+        <thead><tr><th>HTTP</th><th>respCode</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>401</td><td>4010</td><td>Missing API key</td></tr>
+          <tr><td>401</td><td>4011</td><td>Invalid or inactive API key</td></tr>
+          <tr><td>403</td><td>4030</td><td>IP not in API_ALLOWED_IPS</td></tr>
+          <tr><td>400</td><td>4001</td><td>callbackUrl missing</td></tr>
+          <tr><td>400</td><td>4000</td><td>PayU / proxy upstream error</td></tr>
+          <tr><td>404</td><td>4104</td><td>Status check failed</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="footer">PayU Hosted Checkout Middleware — Pavokart integration v1.1.0</div>
+  </div>
+</body>
+</html>
