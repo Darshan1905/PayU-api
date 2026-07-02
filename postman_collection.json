@@ -1,20 +1,34 @@
 {
   "info": {
     "name": "PayU Hosted Middleware API",
-    "description": "PayU Hosted Checkout (non-seamless v2) middleware — proxy via pavokart.com WordPress.\n\nLocal: http://127.0.0.1:8000\nDemo API key after seed: payu-pavokart-demo-key\n\nSet PAYU_PROXY_URL=https://pavokart.com and PAYU_PROXY_SECRET in Laravel .env (must match WP plugin middleware secret).\n\nResponse includes checkoutUrl — redirect customer to PayU hosted page.",
+    "description": "PayU Hosted Checkout middleware v1.2.0 — product catalog + WooCommerce order creation.\n\nProduction: https://connect.pavokart.com\nDemo API key: payu-pavokart-demo-key\n\nRecommended flow:\n1. GET /api/payu/products\n2. POST /api/payu/create-order (lineItems + customer)\n3. Redirect user to checkoutUrl\n4. POST /api/payu/status",
     "_postman_id": "a1b2c3d4-e5f6-7890-payu-middleware",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "base_url", "value": "https://connect.pavokart.com" },
     { "key": "api_key", "value": "payu-pavokart-demo-key" },
     { "key": "txn_id", "value": "" },
+    { "key": "order_id", "value": "" },
     { "key": "checkout_url", "value": "" },
-    { "key": "callback_url", "value": "http://127.0.0.1:8000/webhook/payu" }
+    { "key": "callback_url", "value": "https://connect.pavokart.com/webhook/payu" },
+    { "key": "product_id", "value": "123" },
+    { "key": "variation_id", "value": "" }
   ],
   "item": [
     {
-      "name": "1) Initiate payment (hosted checkout)",
+      "name": "1) List products",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "url": "{{base_url}}/api/payu/products?page=1&per_page=50"
+      }
+    },
+    {
+      "name": "2) Create order + payment link",
       "event": [
         {
           "listen": "test",
@@ -24,6 +38,7 @@
               "const json = pm.response.json();",
               "if (json && json.data) {",
               "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+              "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
               "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
               "  if (url) pm.collectionVariables.set('checkout_url', url);",
               "}"
@@ -40,13 +55,13 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"requestAmount\": 10.50,\n  \"productInfo\": \"Test order\",\n  \"firstName\": \"Test Customer\",\n  \"email\": \"test@pavokart.com\",\n  \"phone\": \"9876543210\",\n  \"remarks\": \"Postman test\",\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+          "raw": "{\n  \"customer\": {\n    \"firstName\": \"Test Customer\",\n    \"email\": \"test@pavokart.com\",\n    \"phone\": \"9876543210\",\n    \"address1\": \"Mumbai\"\n  },\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ],\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
         },
-        "url": "{{base_url}}/api/payu/initiate"
+        "url": "{{base_url}}/api/payu/create-order"
       }
     },
     {
-      "name": "2) Status by txnId",
+      "name": "3) Status by txnId",
       "request": {
         "method": "POST",
         "header": [
@@ -62,7 +77,7 @@
       }
     },
     {
-      "name": "3) Notifications",
+      "name": "4) Notifications",
       "request": {
         "method": "GET",
         "header": [
@@ -73,7 +88,35 @@
       }
     },
     {
-      "name": "4) Webhook simulation (PayU success)",
+      "name": "5) Initiate payment (amount only — legacy)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestAmount\": 10.50,\n  \"productInfo\": \"Test order\",\n  \"firstName\": \"Test Customer\",\n  \"email\": \"test@pavokart.com\",\n  \"phone\": \"9876543210\",\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/payu/initiate"
+      }
+    },
+    {
+      "name": "6) Webhook simulation (PayU success)",
       "request": {
         "method": "POST",
         "header": [
@@ -84,21 +127,6 @@
           "raw": "{\n  \"txnid\": \"{{txn_id}}\",\n  \"mihpayid\": \"12345678\",\n  \"status\": \"success\",\n  \"amount\": \"10.50\",\n  \"mode\": \"UPI\",\n  \"bank_ref_num\": \"405812345678\",\n  \"productinfo\": \"Test order\"\n}"
         },
         "url": "{{base_url}}/webhook/payu"
-      }
-    },
-    {
-      "name": "WordPress proxy — initiate (direct)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-PayU-Middleware-Secret", "value": "your-proxy-secret" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"requestAmount\": 10.50,\n  \"productInfo\": \"WP proxy test\",\n  \"firstName\": \"Test\",\n  \"email\": \"test@pavokart.com\",\n  \"phone\": \"9876543210\"\n}"
-        },
-        "url": "https://pavokart.com/wp-json/payu/v1/initiate-payment"
       }
     }
   ]

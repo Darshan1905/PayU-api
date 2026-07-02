@@ -16,6 +16,127 @@ class PayuController extends Controller
     ) {}
 
     /**
+     * GET /api/payu/products
+     */
+    public function products(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'search' => 'nullable|string|max:200',
+        ]);
+
+        $result = $this->payuService->listProducts(
+            (int) ($validated['page'] ?? 1),
+            (int) ($validated['per_page'] ?? 50),
+            (string) ($validated['search'] ?? '')
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'status' => false,
+                'respCode' => 4000,
+                'respMessage' => $result['message'] ?? 'Could not fetch products.',
+            ], 400);
+        }
+
+        return response()->json([
+            'status' => true,
+            'respCode' => 2000,
+            'respMessage' => 'Products fetched successfully',
+            'data' => $result['data'] ?? [],
+        ]);
+    }
+
+    /**
+     * POST /api/payu/create-order
+     */
+    public function createOrder(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'lineItems' => 'required|array|min:1',
+            'lineItems.*.productId' => 'required|integer|min:1',
+            'lineItems.*.variationId' => 'nullable|integer|min:1',
+            'lineItems.*.quantity' => 'required|integer|min:1',
+            'customer' => 'nullable|array',
+            'customer.firstName' => 'nullable|string|max:200',
+            'customer.lastName' => 'nullable|string|max:200',
+            'customer.email' => 'nullable|email|max:200',
+            'customer.phone' => 'nullable|string|max:20',
+            'customer.address1' => 'nullable|string|max:500',
+            'customer.city' => 'nullable|string|max:200',
+            'customer.state' => 'nullable|string|max:200',
+            'customer.zipCode' => 'nullable|string|max:20',
+            'customer.country' => 'nullable|string|max:2',
+            'firstName' => 'nullable|string|max:200',
+            'display_name' => 'nullable|string|max:200',
+            'email' => 'nullable|email|max:200',
+            'phone' => 'nullable|string|max:20',
+            'address1' => 'nullable|string|max:500',
+            'callbackUrl' => 'nullable|url|max:500',
+        ]);
+
+        $client = $request->attributes->get('client');
+        $callbackUrl = $validated['callbackUrl'] ?? $client->callback_url;
+
+        if (empty($callbackUrl)) {
+            return response()->json([
+                'status' => false,
+                'respCode' => 4001,
+                'respMessage' => 'callbackUrl is required. Pass in request body or configure for your API key.',
+            ], 400);
+        }
+
+        $result = $this->payuService->createOrder($validated);
+
+        if (! ($result['success'] ?? false)) {
+            $response = [
+                'status' => false,
+                'respCode' => 4002,
+                'respMessage' => $result['message'] ?? 'Create order failed.',
+            ];
+            if (! empty($result['errors'])) {
+                $response['errors'] = $result['errors'];
+            }
+            if (! empty($result['orderId'])) {
+                $response['orderId'] = $result['orderId'];
+            }
+
+            return response()->json($response, 400);
+        }
+
+        $data = $result['data'];
+        Transaction::create([
+            'client_id' => $client->id,
+            'collect_ref' => $data['txnId'] ?? '',
+            'user_ref' => isset($data['orderKey']) ? (string) $data['orderKey'] : null,
+            'woocommerce_order_id' => $data['orderId'] ?? null,
+            'transaction_id' => $data['paymentId'] ?? null,
+            'amount' => $data['amount'] ?? 0,
+            'status' => $data['status'] ?? 'PENDING',
+            'callback_url' => $callbackUrl,
+            'raw_response' => $data['raw'] ?? $data,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'respCode' => 2000,
+            'respMessage' => 'Order created and payment link generated',
+            'data' => [
+                'orderId' => $data['orderId'] ?? null,
+                'orderKey' => $data['orderKey'] ?? null,
+                'txnId' => $data['txnId'] ?? null,
+                'paymentId' => $data['paymentId'] ?? null,
+                'checkoutUrl' => $data['checkoutUrl'] ?? null,
+                'paymentUrl' => $data['paymentUrl'] ?? null,
+                'amount' => $data['amount'] ?? null,
+                'status' => $data['status'] ?? 'PENDING',
+                'lineItems' => $data['lineItems'] ?? [],
+            ],
+        ]);
+    }
+
+    /**
      * POST /api/payu/initiate
      */
     public function initiate(Request $request): JsonResponse

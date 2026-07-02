@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Transaction extends Model
 {
     protected $fillable = [
-        'client_id', 'collect_ref', 'user_ref', 'transaction_id', 'amount',
+        'client_id', 'collect_ref', 'user_ref', 'woocommerce_order_id', 'transaction_id', 'amount',
         'status', 'status_message', 'utr', 'payment_mode', 'callback_url', 'raw_response',
     ];
 

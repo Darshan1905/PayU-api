@@ -423,6 +423,127 @@ class PayuService
         ];
     }
 
+    /**
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, errors?: array<int,array<string,mixed>>}
+     */
+    public function listProducts(int $page = 1, int $perPage = 50, string $search = ''): array
+    {
+        if (! $this->useProxy()) {
+            return ['success' => false, 'message' => 'Product catalog requires PAYU_PROXY_URL (WordPress).'];
+        }
+
+        $url = $this->proxyUrl.'/wp-json/payu/v1/products';
+        $query = [
+            'page' => max(1, $page),
+            'per_page' => min(max($perPage, 1), 100),
+        ];
+        if ($search !== '') {
+            $query['search'] = $search;
+        }
+
+        $this->pushWpLog('products_request', ['url' => $url, 'query' => $query]);
+        $response = $this->proxyHttp(30)->get($url, $query);
+        $code = $response->status();
+        $res = $response->json();
+        $this->pushWpLog('products_response', ['http_code' => $code, 'body' => is_array($res) ? $res : $response->body()]);
+
+        if (! is_array($res) || empty($res['success'])) {
+            $msg = is_array($res) && isset($res['message']) ? (string) $res['message'] : 'Could not fetch products.';
+
+            return ['success' => false, 'message' => $msg, 'http_code' => $code];
+        }
+
+        $data = isset($res['data']) && is_array($res['data']) ? $res['data'] : [];
+
+        return ['success' => true, 'data' => $data];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{success: bool, message?: string, data?: array<string,mixed>, errors?: array<int,array<string,mixed>>, orderId?: int}
+     */
+    public function createOrder(array $payload): array
+    {
+        if (! $this->useProxy()) {
+            return ['success' => false, 'message' => 'Create order requires PAYU_PROXY_URL (WordPress).'];
+        }
+
+        $lineItems = $payload['lineItems'] ?? [];
+        if (! is_array($lineItems) || $lineItems === []) {
+            return ['success' => false, 'message' => 'lineItems is required and must contain at least one item.'];
+        }
+
+        $callback = config('payu.callback_url') ?: url('/webhook/payu');
+        $body = [
+            'lineItems' => $lineItems,
+            'customer' => $payload['customer'] ?? [
+                'firstName' => $payload['firstName'] ?? $payload['display_name'] ?? 'Customer',
+                'lastName' => $payload['lastName'] ?? null,
+                'email' => $payload['email'] ?? null,
+                'phone' => $payload['phone'] ?? null,
+                'address1' => $payload['address1'] ?? 'India',
+                'city' => $payload['city'] ?? null,
+                'state' => $payload['state'] ?? null,
+                'zipCode' => $payload['zipCode'] ?? null,
+                'country' => $payload['country'] ?? 'IN',
+            ],
+            'successCallbackUrl' => $callback,
+            'failureCallbackUrl' => $callback,
+        ];
+
+        $url = $this->proxyUrl.'/wp-json/payu/v1/create-order';
+        $this->pushWpLog('create_order_request', ['url' => $url, 'lineItems' => $lineItems]);
+        $response = $this->proxyHttp(45)->post($url, $body);
+        $code = $response->status();
+        $res = $response->json();
+        $this->pushWpLog('create_order_response', ['http_code' => $code, 'body' => is_array($res) ? $res : $response->body()]);
+
+        if (! is_array($res)) {
+            return ['success' => false, 'message' => sprintf('Invalid proxy response (HTTP %d).', $code), 'http_code' => $code];
+        }
+
+        if (empty($res['success'])) {
+            $out = [
+                'success' => false,
+                'message' => is_string($res['message'] ?? null) ? $res['message'] : 'Create order failed.',
+            ];
+            if (! empty($res['errors']) && is_array($res['errors'])) {
+                $out['errors'] = $res['errors'];
+            }
+            if (! empty($res['orderId'])) {
+                $out['orderId'] = (int) $res['orderId'];
+            }
+
+            return $out;
+        }
+
+        $d = $res['data'] ?? [];
+        if (! is_array($d)) {
+            return ['success' => false, 'message' => 'Invalid proxy response shape.'];
+        }
+
+        $checkoutUrl = (string) ($d['checkoutUrl'] ?? $d['paymentUrl'] ?? '');
+        if ($checkoutUrl === '') {
+            return ['success' => false, 'message' => 'No checkout URL from WordPress.'];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'orderId' => (int) ($d['orderId'] ?? 0),
+                'orderKey' => (string) ($d['orderKey'] ?? ''),
+                'txnId' => (string) ($d['txnId'] ?? ''),
+                'paymentId' => (string) ($d['paymentId'] ?? ''),
+                'checkoutUrl' => $checkoutUrl,
+                'paymentUrl' => (string) ($d['paymentUrl'] ?? $checkoutUrl),
+                'amount' => (string) ($d['amount'] ?? ''),
+                'status' => (string) ($d['status'] ?? 'PENDING'),
+                'lineItems' => $d['lineItems'] ?? [],
+                'raw' => $d['raw'] ?? $d,
+            ],
+        ];
+    }
+
     private function sanitizeTxnId(string $txnId): string
     {
         $txnId = preg_replace('/[^A-Za-z0-9._-]/', '', $txnId) ?? '';
