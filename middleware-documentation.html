@@ -117,7 +117,7 @@
       <h1>PayU Hosted Checkout Middleware API</h1>
       <p>PayU v2 Hosted Checkout (non-seamless) — production middleware on AWS Lightsail</p>
       <div class="meta">
-        <div class="meta-item"><strong>Version</strong><span class="value">1.2.0</span></div>
+        <div class="meta-item"><strong>Version</strong><span class="value">1.2.1</span></div>
         <div class="meta-item"><strong>Base URL</strong><span class="value">https://connect.pavokart.com</span></div>
         <div class="meta-item"><strong>Auth Header</strong><span class="value">X-API-Key</span></div>
         <div class="meta-item"><strong>WordPress Proxy</strong><span class="value">https://pavokart.com</span></div>
@@ -172,6 +172,85 @@ Amount-only (legacy): POST /api/payu/initiate — no WooCommerce order</pre>
     </section>
 
     <section class="section">
+      <h2>Simple vs Variable Products</h2>
+      <p>WooCommerce has two product types used by this API. How you build <code>lineItems</code> depends on the product type returned from <code>GET /api/payu/products</code>.</p>
+
+      <table>
+        <thead>
+          <tr><th></th><th>Simple product</th><th>Variable product</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>type</code> in catalog</td><td><code>simple</code></td><td><code>variable</code></td></tr>
+          <tr><td><code>requiresVariation</code></td><td><code>false</code></td><td><code>true</code></td></tr>
+          <tr><td><code>productId</code> in order</td><td>Product ID from catalog</td><td>Parent product ID from catalog</td></tr>
+          <tr><td><code>variationId</code> in order</td><td>Do not send (omit or null)</td><td><strong>Required</strong> — pick from <code>variations[]</code></td></tr>
+          <tr><td>Example</td><td>Single SKU, one price</td><td>T-shirt with size/color options</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Simple product — order body</h3>
+      <p>Use when catalog shows <code>"type": "simple"</code> and <code>"requiresVariation": false</code>.</p>
+      <pre>{
+  "lineItems": [
+    { "productId": 123, "quantity": 2 }
+  ]
+}</pre>
+
+      <h3>Variable product — order body</h3>
+      <p>Use when catalog shows <code>"type": "variable"</code> and <code>"requiresVariation": true</code>. You must choose one entry from the <code>variations</code> array.</p>
+      <p><strong>Catalog example for product 20600:</strong></p>
+      <pre>{
+  "id": 20600,
+  "name": "T-Shirt",
+  "type": "variable",
+  "requiresVariation": true,
+  "variations": [
+    { "id": 20601, "parentId": 20600, "price": "599.00", "attributes": { "size": "M" } },
+    { "id": 20602, "parentId": 20600, "price": "599.00", "attributes": { "size": "L" } }
+  ]
+}</pre>
+      <p><strong>Correct create-order line item:</strong></p>
+      <pre>{
+  "lineItems": [
+    { "productId": 20600, "variationId": 20601, "quantity": 1 }
+  ]
+}</pre>
+      <div class="note">
+        <strong>Common mistake:</strong> Sending only <code>{ "productId": 20600, "quantity": 1 }</code> for a variable product returns <code>respCode: 4002</code> with message <em>variationId is required for variable products.</em> This is expected — pick a <code>variationId</code> from the catalog first.
+      </div>
+
+      <h3>Mixed cart (simple + variable)</h3>
+      <p>You can combine both types in one order. Each line item is validated independently; if any line fails, the <strong>entire cart is rejected</strong>.</p>
+      <pre>{
+  "lineItems": [
+    { "productId": 123, "quantity": 1 },
+    { "productId": 20600, "variationId": 20601, "quantity": 2 }
+  ]
+}</pre>
+
+      <h3>How to find the right IDs</h3>
+      <ol>
+        <li>Call <code>GET /api/payu/products?page=1&amp;per_page=50</code> (paginate until you find the product).</li>
+        <li>Note the product <code>id</code> → use as <code>productId</code>.</li>
+        <li>If <code>requiresVariation</code> is <code>true</code>, pick <code>variations[].id</code> → use as <code>variationId</code>.</li>
+        <li>Send <code>POST /api/payu/create-order</code> with those IDs.</li>
+      </ol>
+
+      <h3>Product validation errors (<code>respCode: 4002</code>)</h3>
+      <table>
+        <thead><tr><th>Message</th><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Product not found</td><td>Invalid <code>productId</code></td><td>Use ID from <code>GET /products</code></td></tr>
+          <tr><td>variationId is required for variable products</td><td>Variable product without <code>variationId</code></td><td>Add <code>variationId</code> from catalog</td></tr>
+          <tr><td>Variation not found</td><td>Invalid <code>variationId</code></td><td>Use ID from <code>variations[]</code></td></tr>
+          <tr><td>variationId does not belong to productId</td><td>Mismatched parent and variation</td><td>Ensure <code>variation.parentId</code> equals <code>productId</code></td></tr>
+          <tr><td>Insufficient stock</td><td>Quantity exceeds available stock</td><td>Reduce quantity or pick in-stock variation</td></tr>
+          <tr><td>Product is out of stock</td><td>No stock</td><td>Choose another product or variation</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
       <h2>Endpoints</h2>
 
       <h3><span class="pill get">GET</span>Product Catalog</h3>
@@ -211,6 +290,40 @@ X-API-Key: payu-pavokart-demo-key</pre>
   }
 }</pre>
 
+      <h3>Auto-generated Indian address</h3>
+      <p>Address fields are <strong>optional</strong> on <code>create-order</code>. If the client omits <code>address1</code>, <code>city</code>, <code>state</code>, or <code>zipCode</code>, the WordPress plugin automatically assigns a <strong>random realistic Indian billing address</strong> (real cities, states, pincodes). Shipping address mirrors billing. A different address is picked on each API call.</p>
+      <p><strong>Minimal request (no address required):</strong></p>
+      <pre>{
+  "customer": {
+    "firstName": "Test Customer",
+    "email": "test@pavokart.com",
+    "phone": "9876543210"
+  },
+  "lineItems": [
+    { "productId": 123, "quantity": 1 }
+  ],
+  "callbackUrl": "https://connect.pavokart.com/webhook/payu"
+}</pre>
+      <p><strong>Example auto-generated address in response:</strong></p>
+      <pre>{
+  "addressAutoGenerated": true,
+  "billingAddress": {
+    "address1": "Flat 42, Koramangala 5th Block",
+    "city": "Bengaluru",
+    "state": "KA",
+    "zipCode": "560034",
+    "country": "IN"
+  },
+  "shippingAddress": {
+    "address1": "Flat 42, Koramangala 5th Block",
+    "city": "Bengaluru",
+    "state": "KA",
+    "zipCode": "560034",
+    "country": "IN"
+  }
+}</pre>
+      <p>If the client sends a complete address, that is used instead and <code>addressAutoGenerated</code> is <code>false</code>.</p>
+
       <h3><span class="pill">POST</span>Create Order + Payment Link (recommended)</h3>
       <div class="endpoint">POST https://connect.pavokart.com/api/payu/create-order</div>
       <p>Creates a real WooCommerce order on pavokart.com, then returns PayU <code>checkoutUrl</code>. All line items are validated first — if any product is invalid or out of stock, the <strong>entire cart fails</strong> (no partial orders). Amount is calculated server-side from product prices. No shipping line is added.</p>
@@ -221,7 +334,7 @@ X-API-Key: payu-pavokart-demo-key</pre>
           <tr><td>lineItems[].productId</td><td>Yes</td><td>WooCommerce product ID</td></tr>
           <tr><td>lineItems[].quantity</td><td>Yes</td><td>Min 1</td></tr>
           <tr><td>lineItems[].variationId</td><td>Conditional</td><td>Required for variable products</td></tr>
-          <tr><td>customer</td><td>No</td><td>firstName, lastName, email, phone, address1, city, state, zipCode, country</td></tr>
+          <tr><td>customer</td><td>No</td><td>firstName, email, phone (address fields optional — auto-generated if omitted)</td></tr>
           <tr><td>callbackUrl</td><td>Conditional</td><td>Required unless set on client API key record</td></tr>
         </tbody>
       </table>
@@ -254,9 +367,22 @@ X-API-Key: payu-pavokart-demo-key
     "checkoutUrl": "https://secure.payu.in/...",
     "amount": "1597.00",
     "status": "PENDING",
-    "lineItems": [
-      { "productId": 123, "variationId": null, "name": "Product A", "quantity": 2, "total": "998.00" }
-    ]
+    "lineItems": [...],
+    "addressAutoGenerated": true,
+    "billingAddress": {
+      "address1": "Shop 18, Bandra West",
+      "city": "Mumbai",
+      "state": "MH",
+      "zipCode": "400050",
+      "country": "IN"
+    },
+    "shippingAddress": {
+      "address1": "Shop 18, Bandra West",
+      "city": "Mumbai",
+      "state": "MH",
+      "zipCode": "400050",
+      "country": "IN"
+    }
   }
 }</pre>
       <p><strong>Validation failure (whole cart rejected):</strong></p>
@@ -265,7 +391,19 @@ X-API-Key: payu-pavokart-demo-key
   "respCode": 4002,
   "respMessage": "Order validation failed.",
   "errors": [
-    { "productId": 99999, "message": "Product not found." }
+    { "productId": 99999, "variationId": null, "message": "Product not found." }
+  ]
+}</pre>
+      <pre>{
+  "status": false,
+  "respCode": 4002,
+  "respMessage": "Order validation failed.",
+  "errors": [
+    {
+      "productId": 20600,
+      "variationId": null,
+      "message": "variationId is required for variable products."
+    }
   ]
 }</pre>
 
@@ -412,7 +550,7 @@ PAYU_CALLBACK_URL=https://connect.pavokart.com/webhook/payu</pre>
       </table>
     </section>
 
-    <div class="footer">PayU Hosted Checkout Middleware — Pavokart · connect.pavokart.com · v1.2.0</div>
+    <div class="footer">PayU Hosted Checkout Middleware — Pavokart · connect.pavokart.com · v1.2.1</div>
   </div>
 </body>
 </html>

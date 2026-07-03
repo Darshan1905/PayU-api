@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "PayU Hosted Middleware API",
-    "description": "PayU Hosted Checkout middleware v1.2.0 — product catalog + WooCommerce order creation.\n\nProduction: https://connect.pavokart.com\nDemo API key: payu-pavokart-demo-key\n\nRecommended flow:\n1. GET /api/payu/products\n2. POST /api/payu/create-order (lineItems + customer)\n3. Redirect user to checkoutUrl\n4. POST /api/payu/status",
+    "description": "PayU Hosted Checkout middleware v1.2.0 — product catalog + WooCommerce order creation.\n\nProduction: https://connect.pavokart.com\nDemo API key: payu-pavokart-demo-key\n\nRecommended flow:\n1. GET /api/payu/products\n2. POST /api/payu/create-order (lineItems + customer)\n3. Redirect user to checkoutUrl\n4. POST /api/payu/status\n\nProduct types:\n- SIMPLE: { productId, quantity } only\n- VARIABLE: { productId, variationId, quantity } — variationId from catalog variations[]\n- Error 4002 if variable product sent without variationId",
     "_postman_id": "a1b2c3d4-e5f6-7890-payu-middleware",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -55,7 +55,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"customer\": {\n    \"firstName\": \"Test Customer\",\n    \"email\": \"test@pavokart.com\",\n    \"phone\": \"9876543210\",\n    \"address1\": \"Mumbai\"\n  },\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ],\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+          "raw": "{\n  \"customer\": {\n    \"firstName\": \"Test Customer\",\n    \"email\": \"test@pavokart.com\",\n    \"phone\": \"9876543210\"\n  },\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ],\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
         },
         "url": "{{base_url}}/api/payu/create-order"
       }
