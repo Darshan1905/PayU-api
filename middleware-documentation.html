@@ -3,19 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayU Hosted Checkout Middleware API Documentation</title>
+  <title>PayU Middleware API</title>
   <style>
     :root {
-      --bg: #f7f9fc;
+      --bg: #f8fafc;
       --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --primary: #0d9488;
-      --primary-dark: #0f766e;
-      --border: #e5e7eb;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #0f766e;
       --code-bg: #0f172a;
       --code-text: #e2e8f0;
-      --warn: #b45309;
     }
     * { box-sizing: border-box; }
     body {
@@ -23,534 +21,190 @@
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.55;
+      line-height: 1.6;
+      font-size: 15px;
     }
-    .container { max-width: 980px; margin: 0 auto; padding: 28px 20px 48px; }
-    .hero {
-      background: linear-gradient(135deg, #0f766e, #14b8a6);
-      color: #fff;
-      border-radius: 14px;
-      padding: 28px;
-      margin-bottom: 18px;
-      box-shadow: 0 10px 24px rgba(15, 118, 110, 0.25);
-    }
-    .hero h1 { margin: 0 0 8px; font-size: 30px; }
-    .hero p { margin: 0; opacity: 0.95; }
-    .meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      margin-top: 14px;
-    }
-    .meta-item {
-      background: rgba(255,255,255,0.14);
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-size: 14px;
-    }
-    .meta-item .value { display: block; margin-top: 4px; font-weight: 700; word-break: break-all; }
-    .section {
+    .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; }
+    h1 { font-size: 26px; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+    .block {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       padding: 20px;
-      margin-top: 14px;
+      margin-bottom: 16px;
     }
-    h2 { margin: 0 0 10px; font-size: 22px; }
-    h3 { margin: 22px 0 8px; font-size: 18px; }
-    .pill {
+    h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    .method {
       display: inline-block;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      color: #fff;
-      background: var(--primary);
+      padding: 3px 8px;
+      border-radius: 4px;
       margin-right: 8px;
+      color: #fff;
+      vertical-align: middle;
     }
-    .pill.get { background: #059669; }
-    .endpoint {
+    .method.get { background: #059669; }
+    .method.post { background: #2563eb; }
+    .url {
       font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 14px;
-      color: var(--primary-dark);
-      background: #ecfdf5;
-      border: 1px solid #99f6e4;
-      padding: 8px 10px;
-      border-radius: 8px;
-      margin: 8px 0 12px;
+      font-size: 13px;
+      color: var(--accent);
       word-break: break-all;
     }
-    .note {
-      border-left: 4px solid var(--warn);
-      background: #fffbeb;
-      color: #78350f;
-      padding: 10px 12px;
-      border-radius: 8px;
-      margin: 10px 0;
-      font-size: 14px;
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
-    table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 14px; }
-    th, td { border: 1px solid var(--border); text-align: left; padding: 8px 10px; vertical-align: top; }
-    th { background: #f9fafb; }
     pre {
-      margin: 8px 0 14px;
+      margin: 0;
       background: var(--code-bg);
       color: var(--code-text);
-      padding: 12px;
+      padding: 14px;
       border-radius: 8px;
       overflow: auto;
       font-size: 13px;
+      line-height: 1.5;
     }
-    code {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      background: #f3f4f6;
-      border: 1px solid #e5e7eb;
-      border-radius: 5px;
-      padding: 1px 6px;
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
     }
-    .footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 18px; }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 24px;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="hero">
-      <h1>PayU Hosted Checkout Middleware API</h1>
-      <p>PayU v2 Hosted Checkout (non-seamless) — production middleware on AWS Lightsail</p>
-      <div class="meta">
-        <div class="meta-item"><strong>Version</strong><span class="value">1.2.1</span></div>
-        <div class="meta-item"><strong>Base URL</strong><span class="value">https://connect.pavokart.com</span></div>
-        <div class="meta-item"><strong>Auth Header</strong><span class="value">X-API-Key</span></div>
-        <div class="meta-item"><strong>WordPress Proxy</strong><span class="value">https://pavokart.com</span></div>
-      </div>
+  <div class="wrap">
+    <h1>PayU Middleware API</h1>
+    <p class="sub">Base URL: <strong>https://connect.pavokart.com</strong> &nbsp;·&nbsp; Version 1.2.2</p>
+
+    <div class="block">
+      <h2>Headers (all API requests)</h2>
+      <pre>Accept: application/json
+X-API-Key: your-api-key</pre>
+      <p class="note">For POST requests, also add: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Content-Type: application/json</code></p>
     </div>
 
-    <section class="section">
-      <h2>Base URLs</h2>
-      <table>
-        <thead><tr><th>Service</th><th>URL</th></tr></thead>
-        <tbody>
-          <tr><td>Middleware API</td><td><code>https://connect.pavokart.com</code></td></tr>
-          <tr><td>Health check</td><td><code>https://connect.pavokart.com/up</code></td></tr>
-          <tr><td>PayU webhook (middleware)</td><td><code>https://connect.pavokart.com/webhook/payu</code></td></tr>
-          <tr><td>WordPress proxy (PayU credentials)</td><td><code>https://pavokart.com</code></td></tr>
-          <tr><td>PayU production API</td><td><code>https://api.payu.in/v2/payments</code></td></tr>
-        </tbody>
-      </table>
-    </section>
+    <div class="block">
+      <h2>Auto customer details (create-order)</h2>
+      <p class="note">If <code>customer</code> is omitted or incomplete, Indian name, mobile, email, and address are auto-generated. Shipping mirrors billing. Response includes <code>customer</code> and <code>customerAutoGenerated: true</code>.</p>
+    </div>
 
-    <section class="section">
-      <h2>Architecture</h2>
-      <p>Middleware runs on <strong>connect.pavokart.com</strong> (AWS Lightsail). PayU Merchant Key + Salt live on <strong>pavokart.com</strong> WordPress plugin. Middleware calls WordPress REST, which calls PayU production API.</p>
-      <pre>Client → GET  https://connect.pavokart.com/api/payu/products
-       → WooCommerce catalog (simple + variable products)
+    <div class="block">
+      <h2>1. List products</h2>
+      <p><span class="method get">GET</span><span class="url">/api/payu/products?page=1&amp;per_page=50</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/payu/products?page=1&amp;per_page=50</pre>
+      <div class="label">Headers</div>
+      <pre>Accept: application/json
+X-API-Key: your-api-key</pre>
+    </div>
 
-Client → POST https://connect.pavokart.com/api/payu/create-order (lineItems + customer)
-       → https://pavokart.com/wp-json/payu/v1/create-order
-       → WooCommerce order created (products + qty, no shipping)
-       → https://api.payu.in/v2/payments
-       → checkoutUrl returned — redirect customer to PayU hosted page
-       → On payment success: WooCommerce order marked paid, stock reduced
-
-Amount-only (legacy): POST /api/payu/initiate — no WooCommerce order</pre>
-    </section>
-
-    <section class="section">
-      <h2>Authentication</h2>
-      <p><strong>Demo API Key (after <code>php artisan db:seed</code>):</strong> <code>payu-pavokart-demo-key</code></p>
-      <table>
-        <thead><tr><th>Header</th><th>Value</th></tr></thead>
-        <tbody>
-          <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
-          <tr><td><code>Accept</code></td><td><code>application/json</code></td></tr>
-          <tr><td><code>X-API-Key</code></td><td><code>payu-pavokart-demo-key</code> (or your client key)</td></tr>
-        </tbody>
-      </table>
-      <p>Alternatives: <code>Authorization: Bearer &lt;key&gt;</code> or <code>api_key</code> in JSON body.</p>
-      <div class="note">
-        <strong>IP whitelist:</strong> Only IPs listed in <code>API_ALLOWED_IPS</code> (Laravel <code>.env</code> on Lightsail) can call <code>/api/payu/*</code>. Add each client server's public IP. If you get <code>respCode: 4030</code>, your IP is not whitelisted.
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>Simple vs Variable Products</h2>
-      <p>WooCommerce has two product types used by this API. How you build <code>lineItems</code> depends on the product type returned from <code>GET /api/payu/products</code>.</p>
-
-      <table>
-        <thead>
-          <tr><th></th><th>Simple product</th><th>Variable product</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>type</code> in catalog</td><td><code>simple</code></td><td><code>variable</code></td></tr>
-          <tr><td><code>requiresVariation</code></td><td><code>false</code></td><td><code>true</code></td></tr>
-          <tr><td><code>productId</code> in order</td><td>Product ID from catalog</td><td>Parent product ID from catalog</td></tr>
-          <tr><td><code>variationId</code> in order</td><td>Do not send (omit or null)</td><td><strong>Required</strong> — pick from <code>variations[]</code></td></tr>
-          <tr><td>Example</td><td>Single SKU, one price</td><td>T-shirt with size/color options</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Simple product — order body</h3>
-      <p>Use when catalog shows <code>"type": "simple"</code> and <code>"requiresVariation": false</code>.</p>
+    <div class="block">
+      <h2>2. Create order — simple product</h2>
+      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/payu/create-order</pre>
+      <div class="label">Headers</div>
+      <pre>Content-Type: application/json
+Accept: application/json
+X-API-Key: your-api-key</pre>
+      <div class="label">Body</div>
       <pre>{
   "lineItems": [
-    { "productId": 123, "quantity": 2 }
+    { "productId": 123, "quantity": 1 }
   ]
 }</pre>
+      <p class="note">Redirect user to <code>checkoutUrl</code> in response.</p>
+    </div>
 
-      <h3>Variable product — order body</h3>
-      <p>Use when catalog shows <code>"type": "variable"</code> and <code>"requiresVariation": true</code>. You must choose one entry from the <code>variations</code> array.</p>
-      <p><strong>Catalog example for product 20600:</strong></p>
-      <pre>{
-  "id": 20600,
-  "name": "T-Shirt",
-  "type": "variable",
-  "requiresVariation": true,
-  "variations": [
-    { "id": 20601, "parentId": 20600, "price": "599.00", "attributes": { "size": "M" } },
-    { "id": 20602, "parentId": 20600, "price": "599.00", "attributes": { "size": "L" } }
-  ]
-}</pre>
-      <p><strong>Correct create-order line item:</strong></p>
+    <div class="block">
+      <h2>3. Create order — variable product</h2>
+      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <div class="label">Body</div>
       <pre>{
   "lineItems": [
-    { "productId": 20600, "variationId": 20601, "quantity": 1 }
+    {
+      "productId": 20600,
+      "variationId": 20601,
+      "quantity": 1
+    }
   ]
 }</pre>
-      <div class="note">
-        <strong>Common mistake:</strong> Sending only <code>{ "productId": 20600, "quantity": 1 }</code> for a variable product returns <code>respCode: 4002</code> with message <em>variationId is required for variable products.</em> This is expected — pick a <code>variationId</code> from the catalog first.
-      </div>
+    </div>
 
-      <h3>Mixed cart (simple + variable)</h3>
-      <p>You can combine both types in one order. Each line item is validated independently; if any line fails, the <strong>entire cart is rejected</strong>.</p>
+    <div class="block">
+      <h2>4. Create order — mixed cart</h2>
+      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <div class="label">Body</div>
       <pre>{
   "lineItems": [
     { "productId": 123, "quantity": 1 },
     { "productId": 20600, "variationId": 20601, "quantity": 2 }
   ]
 }</pre>
+    </div>
 
-      <h3>How to find the right IDs</h3>
-      <ol>
-        <li>Call <code>GET /api/payu/products?page=1&amp;per_page=50</code> (paginate until you find the product).</li>
-        <li>Note the product <code>id</code> → use as <code>productId</code>.</li>
-        <li>If <code>requiresVariation</code> is <code>true</code>, pick <code>variations[].id</code> → use as <code>variationId</code>.</li>
-        <li>Send <code>POST /api/payu/create-order</code> with those IDs.</li>
-      </ol>
-
-      <h3>Product validation errors (<code>respCode: 4002</code>)</h3>
-      <table>
-        <thead><tr><th>Message</th><th>Cause</th><th>Fix</th></tr></thead>
-        <tbody>
-          <tr><td>Product not found</td><td>Invalid <code>productId</code></td><td>Use ID from <code>GET /products</code></td></tr>
-          <tr><td>variationId is required for variable products</td><td>Variable product without <code>variationId</code></td><td>Add <code>variationId</code> from catalog</td></tr>
-          <tr><td>Variation not found</td><td>Invalid <code>variationId</code></td><td>Use ID from <code>variations[]</code></td></tr>
-          <tr><td>variationId does not belong to productId</td><td>Mismatched parent and variation</td><td>Ensure <code>variation.parentId</code> equals <code>productId</code></td></tr>
-          <tr><td>Insufficient stock</td><td>Quantity exceeds available stock</td><td>Reduce quantity or pick in-stock variation</td></tr>
-          <tr><td>Product is out of stock</td><td>No stock</td><td>Choose another product or variation</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section class="section">
-      <h2>Endpoints</h2>
-
-      <h3><span class="pill get">GET</span>Product Catalog</h3>
-      <div class="endpoint">GET https://connect.pavokart.com/api/payu/products?page=1&amp;per_page=50</div>
-      <p>Returns published WooCommerce products. Simple products use <code>productId</code> only. Variable products include a <code>variations</code> array — send both <code>productId</code> (parent) and <code>variationId</code> when ordering.</p>
-      <pre>GET https://connect.pavokart.com/api/payu/products?page=1&amp;per_page=50
-X-API-Key: payu-pavokart-demo-key</pre>
+    <div class="block">
+      <h2>5. Payment status</h2>
+      <p><span class="method post">POST</span><span class="url">/api/payu/status</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/payu/status</pre>
+      <div class="label">Headers</div>
+      <pre>Content-Type: application/json
+Accept: application/json
+X-API-Key: your-api-key</pre>
+      <div class="label">Body</div>
       <pre>{
-  "status": true,
-  "respCode": 2000,
-  "respMessage": "Products fetched successfully",
-  "data": {
-    "products": [
-      {
-        "id": 123,
-        "name": "Product A",
-        "type": "simple",
-        "price": "499.00",
-        "inStock": true,
-        "requiresVariation": false,
-        "variations": []
-      },
-      {
-        "id": 200,
-        "name": "T-Shirt",
-        "type": "variable",
-        "requiresVariation": true,
-        "variations": [
-          { "id": 201, "parentId": 200, "price": "599.00", "attributes": { "size": "M" } }
-        ]
-      }
-    ],
-    "page": 1,
-    "perPage": 50,
-    "total": 500,
-    "totalPages": 10
-  }
+  "txnId": "PK7890T260628120001"
 }</pre>
+    </div>
 
-      <h3>Auto-generated Indian address</h3>
-      <p>Address fields are <strong>optional</strong> on <code>create-order</code>. If the client omits <code>address1</code>, <code>city</code>, <code>state</code>, or <code>zipCode</code>, the WordPress plugin automatically assigns a <strong>random realistic Indian billing address</strong> (real cities, states, pincodes). Shipping address mirrors billing. A different address is picked on each API call.</p>
-      <p><strong>Minimal request (no address required):</strong></p>
-      <pre>{
-  "customer": {
-    "firstName": "Test Customer",
-    "email": "test@pavokart.com",
-    "phone": "9876543210"
-  },
-  "lineItems": [
-    { "productId": 123, "quantity": 1 }
-  ],
-  "callbackUrl": "https://connect.pavokart.com/webhook/payu"
-}</pre>
-      <p><strong>Example auto-generated address in response:</strong></p>
-      <pre>{
-  "addressAutoGenerated": true,
-  "billingAddress": {
-    "address1": "Flat 42, Koramangala 5th Block",
-    "city": "Bengaluru",
-    "state": "KA",
-    "zipCode": "560034",
-    "country": "IN"
-  },
-  "shippingAddress": {
-    "address1": "Flat 42, Koramangala 5th Block",
-    "city": "Bengaluru",
-    "state": "KA",
-    "zipCode": "560034",
-    "country": "IN"
-  }
-}</pre>
-      <p>If the client sends a complete address, that is used instead and <code>addressAutoGenerated</code> is <code>false</code>.</p>
+    <div class="block">
+      <h2>6. Notifications</h2>
+      <p><span class="method get">GET</span><span class="url">/api/payu/notifications?limit=20</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/payu/notifications?limit=20</pre>
+      <div class="label">Headers</div>
+      <pre>Accept: application/json
+X-API-Key: your-api-key</pre>
+    </div>
 
-      <h3><span class="pill">POST</span>Create Order + Payment Link (recommended)</h3>
-      <div class="endpoint">POST https://connect.pavokart.com/api/payu/create-order</div>
-      <p>Creates a real WooCommerce order on pavokart.com, then returns PayU <code>checkoutUrl</code>. All line items are validated first — if any product is invalid or out of stock, the <strong>entire cart fails</strong> (no partial orders). Amount is calculated server-side from product prices. No shipping line is added.</p>
-      <table>
-        <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td>lineItems</td><td>Yes</td><td>Array of <code>{ productId, quantity, variationId? }</code></td></tr>
-          <tr><td>lineItems[].productId</td><td>Yes</td><td>WooCommerce product ID</td></tr>
-          <tr><td>lineItems[].quantity</td><td>Yes</td><td>Min 1</td></tr>
-          <tr><td>lineItems[].variationId</td><td>Conditional</td><td>Required for variable products</td></tr>
-          <tr><td>customer</td><td>No</td><td>firstName, email, phone (address fields optional — auto-generated if omitted)</td></tr>
-          <tr><td>callbackUrl</td><td>Conditional</td><td>Required unless set on client API key record</td></tr>
-        </tbody>
-      </table>
-      <pre>POST https://connect.pavokart.com/api/payu/create-order
-Content-Type: application/json
-X-API-Key: payu-pavokart-demo-key
-
-{
-  "customer": {
-    "firstName": "Prince",
-    "email": "customer@example.com",
-    "phone": "9070116411",
-    "address1": "Mumbai"
-  },
-  "lineItems": [
-    { "productId": 123, "quantity": 2 },
-    { "productId": 200, "variationId": 201, "quantity": 1 }
-  ],
-  "callbackUrl": "https://connect.pavokart.com/webhook/payu"
-}</pre>
+    <div class="block">
+      <h2>7. Initiate payment (amount only)</h2>
+      <p><span class="method post">POST</span><span class="url">/api/payu/initiate</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/payu/initiate</pre>
+      <div class="label">Headers</div>
+      <pre>Content-Type: application/json
+Accept: application/json
+X-API-Key: your-api-key</pre>
+      <div class="label">Body</div>
       <pre>{
-  "status": true,
-  "respCode": 2000,
-  "respMessage": "Order created and payment link generated",
-  "data": {
-    "orderId": 7890,
-    "orderKey": "wc_order_xxx",
-    "txnId": "PK7890T260628120001",
-    "paymentId": "21667772394",
-    "checkoutUrl": "https://secure.payu.in/...",
-    "amount": "1597.00",
-    "status": "PENDING",
-    "lineItems": [...],
-    "addressAutoGenerated": true,
-    "billingAddress": {
-      "address1": "Shop 18, Bandra West",
-      "city": "Mumbai",
-      "state": "MH",
-      "zipCode": "400050",
-      "country": "IN"
-    },
-    "shippingAddress": {
-      "address1": "Shop 18, Bandra West",
-      "city": "Mumbai",
-      "state": "MH",
-      "zipCode": "400050",
-      "country": "IN"
-    }
-  }
-}</pre>
-      <p><strong>Validation failure (whole cart rejected):</strong></p>
-      <pre>{
-  "status": false,
-  "respCode": 4002,
-  "respMessage": "Order validation failed.",
-  "errors": [
-    { "productId": 99999, "variationId": null, "message": "Product not found." }
-  ]
-}</pre>
-      <pre>{
-  "status": false,
-  "respCode": 4002,
-  "respMessage": "Order validation failed.",
-  "errors": [
-    {
-      "productId": 20600,
-      "variationId": null,
-      "message": "variationId is required for variable products."
-    }
-  ]
-}</pre>
-
-      <h3><span class="pill">POST</span>Initiate Payment (amount only)</h3>
-      <div class="endpoint">POST https://connect.pavokart.com/api/payu/initiate</div>
-      <table>
-        <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td>requestAmount</td><td>Yes</td><td>Amount in INR (min 0.01)</td></tr>
-          <tr><td>txnId / txn_ref</td><td>No</td><td>Your reference (auto-generated if omitted)</td></tr>
-          <tr><td>firstName / display_name</td><td>No</td><td>Customer name</td></tr>
-          <tr><td>email, phone</td><td>No</td><td>Billing contact (phone as string)</td></tr>
-          <tr><td>productInfo / remarks</td><td>No</td><td>Order description</td></tr>
-          <tr><td>callbackUrl</td><td>Conditional</td><td>Required unless set on client API key record</td></tr>
-        </tbody>
-      </table>
-      <p><strong>Request example:</strong></p>
-      <pre>POST https://connect.pavokart.com/api/payu/initiate
-Content-Type: application/json
-X-API-Key: payu-pavokart-demo-key
-
-{
   "requestAmount": 499.00,
-  "productInfo": "Order PK123",
-  "firstName": "Prince",
-  "email": "customer@example.com",
-  "phone": "9070116411",
-  "callbackUrl": "https://connect.pavokart.com/webhook/payu"
+  "productInfo": "Payment"
 }</pre>
-      <p><strong>Success response:</strong></p>
-      <pre>{
-  "status": true,
-  "respCode": 2000,
-  "respMessage": "Payment link generated",
-  "data": {
-    "txnId": "PK123T260623120001",
-    "paymentId": "21667772394",
-    "checkoutUrl": "https://secure.payu.in/_payment_options?mihpayid=...",
-    "paymentUrl": "https://secure.payu.in/_payment_options?mihpayid=...",
-    "amount": "499.00",
-    "status": "PENDING"
-  }
-}</pre>
-      <p>Redirect the customer to <code>checkoutUrl</code> to complete payment on PayU's hosted page.</p>
+    </div>
 
-      <h3><span class="pill">POST</span>Transaction Status</h3>
-      <div class="endpoint">POST https://connect.pavokart.com/api/payu/status</div>
-      <pre>POST https://connect.pavokart.com/api/payu/status
-Content-Type: application/json
-X-API-Key: payu-pavokart-demo-key
-
-{ "txnId": "PK123T260623120001" }</pre>
-      <pre>{
-  "status": true,
-  "respCode": 2000,
-  "respMessage": "Transaction status fetched successfully",
-  "paid": true,
-  "data": {
-    "txnId": "PK123T260623120001",
-    "status": "success",
-    "mihpayid": "21667772394"
-  }
-}</pre>
-
-      <h3><span class="pill get">GET</span>Notifications</h3>
-      <div class="endpoint">GET https://connect.pavokart.com/api/payu/notifications?limit=50</div>
-      <pre>GET https://connect.pavokart.com/api/payu/notifications?limit=20
-X-API-Key: payu-pavokart-demo-key</pre>
-    </section>
-
-    <section class="section">
-      <h2>PayU Webhook (middleware)</h2>
-      <div class="endpoint">POST https://connect.pavokart.com/webhook/payu</div>
-      <p>Use this URL as <code>callbackUrl</code> when initiating payments via the middleware. PayU / WordPress relays payment result here. No <code>X-API-Key</code> required on this route.</p>
-      <p>In proxy mode, PayU may also callback WordPress first at:</p>
-      <ul>
-        <li><code>https://pavokart.com/wp-json/payu/v1/callback/success</code></li>
-        <li><code>https://pavokart.com/wp-json/payu/v1/callback/failure</code></li>
-      </ul>
-    </section>
-
-    <section class="section">
-      <h2>WordPress Plugin Setup (pavokart.com)</h2>
-      <ol>
-        <li>Install <code>payu-payment-gateway</code> plugin on pavokart.com</li>
-        <li>WooCommerce → PayU Hosted → enter Merchant Key + Salt</li>
-        <li>Set <strong>Middleware proxy secret</strong> (same as <code>PAYU_PROXY_SECRET</code> in Laravel <code>.env</code>)</li>
-        <li>Enable PayU Hosted under WooCommerce → Payments</li>
-      </ol>
-      <table>
-        <thead><tr><th>WP REST endpoint</th><th>Purpose</th></tr></thead>
-        <tbody>
-          <tr><td><code>https://pavokart.com/wp-json/payu/v1/initiate-payment</code></td><td>Middleware proxy initiate</td></tr>
-          <tr><td><code>https://pavokart.com/wp-json/payu/v1/status</code></td><td>Middleware proxy status</td></tr>
-          <tr><td><code>https://pavokart.com/wp-json/payu/v1/callback/success</code></td><td>PayU success callback (WooCommerce)</td></tr>
-          <tr><td><code>https://pavokart.com/wp-json/payu/v1/callback/failure</code></td><td>PayU failure callback (WooCommerce)</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section class="section">
-      <h2>Server Configuration (Lightsail)</h2>
-      <p>Example <code>.env</code> values on <code>connect.pavokart.com</code>:</p>
-      <pre>APP_URL=https://connect.pavokart.com
-
-API_IP_WHITELIST_ENABLED=true
-API_ALLOWED_IPS=127.0.0.1,::1,&lt;client-server-ip&gt;
-
-PAYU_PROXY_URL=https://pavokart.com
-PAYU_PROXY_SECRET=&lt;same-as-wp-plugin-middleware-secret&gt;
-PAYU_CALLBACK_URL=https://connect.pavokart.com/webhook/payu</pre>
-      <p>After changing <code>.env</code>, run: <code>php artisan config:clear</code></p>
-    </section>
-
-    <section class="section">
-      <h2>Test with cURL</h2>
-      <pre>curl -X POST "https://connect.pavokart.com/api/payu/initiate" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -H "X-API-Key: payu-pavokart-demo-key" \
-  -d '{
-    "requestAmount": 10.50,
-    "productInfo": "Test order",
-    "firstName": "Test Customer",
-    "email": "test@pavokart.com",
-    "phone": "9876543210",
-    "callbackUrl": "https://connect.pavokart.com/webhook/payu"
-  }'</pre>
-    </section>
-
-    <section class="section">
-      <h2>Error Codes</h2>
-      <table>
-        <thead><tr><th>HTTP</th><th>respCode</th><th>Meaning</th></tr></thead>
-        <tbody>
-          <tr><td>401</td><td>4010</td><td>Missing API key</td></tr>
-          <tr><td>401</td><td>4011</td><td>Invalid or inactive API key</td></tr>
-          <tr><td>403</td><td>4030</td><td>IP not in API_ALLOWED_IPS</td></tr>
-          <tr><td>400</td><td>4001</td><td>callbackUrl missing</td></tr>
-          <tr><td>400</td><td>4002</td><td>Order validation failed (invalid product, stock, variation required)</td></tr>
-          <tr><td>400</td><td>4000</td><td>PayU / WordPress proxy upstream error</td></tr>
-          <tr><td>404</td><td>4104</td><td>Status check failed</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <div class="footer">PayU Hosted Checkout Middleware — Pavokart · connect.pavokart.com · v1.2.1</div>
+    <div class="footer">connect.pavokart.com · v1.2.2</div>
   </div>
 </body>
 </html>

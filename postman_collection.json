@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "PayU Hosted Middleware API",
-    "description": "PayU Hosted Checkout middleware v1.2.0 — product catalog + WooCommerce order creation.\n\nProduction: https://connect.pavokart.com\nDemo API key: payu-pavokart-demo-key\n\nRecommended flow:\n1. GET /api/payu/products\n2. POST /api/payu/create-order (lineItems + customer)\n3. Redirect user to checkoutUrl\n4. POST /api/payu/status\n\nProduct types:\n- SIMPLE: { productId, quantity } only\n- VARIABLE: { productId, variationId, quantity } — variationId from catalog variations[]\n- Error 4002 if variable product sent without variationId",
+    "description": "PayU Hosted Checkout middleware v1.2.2\n\nProduction: https://connect.pavokart.com\n\nCreate-order: send lineItems only — Indian name, phone, email, address auto-generated.\nVariable products need variationId from GET /products.",
     "_postman_id": "a1b2c3d4-e5f6-7890-payu-middleware",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -13,121 +13,233 @@
     { "key": "checkout_url", "value": "" },
     { "key": "callback_url", "value": "https://connect.pavokart.com/webhook/payu" },
     { "key": "product_id", "value": "123" },
-    { "key": "variation_id", "value": "" }
+    { "key": "parent_product_id", "value": "20600" },
+    { "key": "variation_id", "value": "20601" }
   ],
   "item": [
     {
-      "name": "1) List products",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Accept", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{api_key}}" }
-        ],
-        "url": "{{base_url}}/api/payu/products?page=1&per_page=50"
-      }
-    },
-    {
-      "name": "2) Create order + payment link",
-      "event": [
+      "name": "Catalog",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "const json = pm.response.json();",
-              "if (json && json.data) {",
-              "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
-              "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
-              "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
-              "  if (url) pm.collectionVariables.set('checkout_url', url);",
-              "}"
-            ]
+          "name": "1) List products (page 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (!json || !json.data || !Array.isArray(json.data.products)) return;",
+                  "const simple = json.data.products.find(p => p.type === 'simple' && p.purchasable);",
+                  "if (simple) pm.collectionVariables.set('product_id', String(simple.id));",
+                  "const variable = json.data.products.find(p => p.type === 'variable' && p.variations && p.variations.length);",
+                  "if (variable) {",
+                  "  pm.collectionVariables.set('parent_product_id', String(variable.id));",
+                  "  pm.collectionVariables.set('variation_id', String(variable.variations[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/payu/products?page=1&per_page=50"
+          }
+        },
+        {
+          "name": "1b) List products (page 2)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/payu/products?page=2&per_page=50"
           }
         }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Accept", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{api_key}}" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"customer\": {\n    \"firstName\": \"Test Customer\",\n    \"email\": \"test@pavokart.com\",\n    \"phone\": \"9876543210\"\n  },\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ],\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
-        },
-        "url": "{{base_url}}/api/payu/create-order"
-      }
+      ]
     },
     {
-      "name": "3) Status by txnId",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Accept", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{api_key}}" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"txnId\": \"{{txn_id}}\"\n}"
-        },
-        "url": "{{base_url}}/api/payu/status"
-      }
-    },
-    {
-      "name": "4) Notifications",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Accept", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{api_key}}" }
-        ],
-        "url": "{{base_url}}/api/payu/notifications?limit=20"
-      }
-    },
-    {
-      "name": "5) Initiate payment (amount only — legacy)",
-      "event": [
+      "name": "Create order",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "const json = pm.response.json();",
-              "if (json && json.data && json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);"
-            ]
+          "name": "2) Create order — simple product (auto Indian customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+                  "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
+                  "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+                  "  if (url) pm.collectionVariables.set('checkout_url', url);",
+                  "  if (json.data.customerAutoGenerated) console.log('Customer:', json.data.customer);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/payu/create-order"
+          }
+        },
+        {
+          "name": "2b) Create order — variable product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+                  "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
+                  "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+                  "  if (url) pm.collectionVariables.set('checkout_url', url);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    {\n      \"productId\": {{parent_product_id}},\n      \"variationId\": {{variation_id}},\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/payu/create-order"
+          }
+        },
+        {
+          "name": "2c) Create order — mixed cart (simple + variable)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 },\n    { \"productId\": {{parent_product_id}}, \"variationId\": {{variation_id}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/payu/create-order"
+          }
+        },
+        {
+          "name": "2d) Create order — custom address (optional override)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"firstName\": \"Test Customer\",\n    \"email\": \"test@pavokart.com\",\n    \"phone\": \"9876543210\",\n    \"address1\": \"Shop 12, MG Road\",\n    \"city\": \"Mumbai\",\n    \"state\": \"MH\",\n    \"zipCode\": \"400001\",\n    \"country\": \"IN\"\n  },\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ],\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+            },
+            "url": "{{base_url}}/api/payu/create-order"
           }
         }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Accept", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{api_key}}" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"requestAmount\": 10.50,\n  \"productInfo\": \"Test order\",\n  \"firstName\": \"Test Customer\",\n  \"email\": \"test@pavokart.com\",\n  \"phone\": \"9876543210\",\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
-        },
-        "url": "{{base_url}}/api/payu/initiate"
-      }
+      ]
     },
     {
-      "name": "6) Webhook simulation (PayU success)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"txnid\": \"{{txn_id}}\",\n  \"mihpayid\": \"12345678\",\n  \"status\": \"success\",\n  \"amount\": \"10.50\",\n  \"mode\": \"UPI\",\n  \"bank_ref_num\": \"405812345678\",\n  \"productinfo\": \"Test order\"\n}"
+      "name": "Payment & status",
+      "item": [
+        {
+          "name": "3) Status by txnId",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txn_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/payu/status"
+          }
         },
-        "url": "{{base_url}}/webhook/payu"
-      }
+        {
+          "name": "4) Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/payu/notifications?limit=20"
+          }
+        },
+        {
+          "name": "5) Initiate payment (amount only — legacy)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestAmount\": 10.50,\n  \"productInfo\": \"Test order\",\n  \"firstName\": \"Test Customer\",\n  \"email\": \"test@pavokart.com\",\n  \"phone\": \"9876543210\",\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+            },
+            "url": "{{base_url}}/api/payu/initiate"
+          }
+        },
+        {
+          "name": "6) Webhook simulation (PayU success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnid\": \"{{txn_id}}\",\n  \"mihpayid\": \"12345678\",\n  \"status\": \"success\",\n  \"amount\": \"10.50\",\n  \"mode\": \"UPI\",\n  \"bank_ref_num\": \"405812345678\",\n  \"productinfo\": \"Test order\"\n}"
+            },
+            "url": "{{base_url}}/webhook/payu"
+          }
+        }
+      ]
     }
   ]
 }
