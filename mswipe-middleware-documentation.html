@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayU Middleware API</title>
+  <title>Mswipe Middleware API</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -11,7 +11,7 @@
       --text: #1e293b;
       --muted: #64748b;
       --border: #e2e8f0;
-      --accent: #0f766e;
+      --accent: #7c3aed;
       --code-bg: #0f172a;
       --code-text: #e2e8f0;
     }
@@ -93,19 +93,19 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>PayU Middleware API</h1>
-    <p class="sub">Base URL: <strong>https://connect.pavokart.com</strong> &nbsp;·&nbsp; API Key: <strong>payu-pavokart-demo-key</strong> &nbsp;·&nbsp; Version 1.2.2</p>
+    <h1>Mswipe Middleware API</h1>
+    <p class="sub">Base URL: <strong>https://connect.pavokart.com</strong> &nbsp;·&nbsp; API Key: <strong>mswipe-pavokart-demo-key</strong> &nbsp;·&nbsp; Version 1.0.2</p>
 
     <div class="block">
       <h2>API Key</h2>
-      <pre>X-API-Key: payu-pavokart-demo-key</pre>
+      <pre>X-API-Key: mswipe-pavokart-demo-key</pre>
       <p class="note">Send this header on every request (except webhook).</p>
     </div>
 
     <div class="block">
       <h2>Headers (all API requests)</h2>
       <pre>Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
       <p class="note">For POST requests, also add: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Content-Type: application/json</code></p>
     </div>
 
@@ -116,35 +116,35 @@ X-API-Key: payu-pavokart-demo-key</pre>
 
     <div class="block">
       <h2>1. List products</h2>
-      <p><span class="method get">GET</span><span class="url">/api/payu/products?page=1&amp;per_page=50</span></p>
+      <p><span class="method get">GET</span><span class="url">/api/mswipe/products?page=1&amp;per_page=50</span></p>
       <div class="label">Full URL</div>
-      <pre>https://connect.pavokart.com/api/payu/products?page=1&amp;per_page=50</pre>
+      <pre>https://connect.pavokart.com/api/mswipe/products?page=1&amp;per_page=50</pre>
       <div class="label">Headers</div>
       <pre>Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
     </div>
 
     <div class="block">
       <h2>2. Create order — simple product</h2>
-      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <p><span class="method post">POST</span><span class="url">/api/mswipe/create-order</span></p>
       <div class="label">Full URL</div>
-      <pre>https://connect.pavokart.com/api/payu/create-order</pre>
+      <pre>https://connect.pavokart.com/api/mswipe/create-order</pre>
       <div class="label">Headers</div>
       <pre>Content-Type: application/json
 Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
       <div class="label">Body</div>
       <pre>{
   "lineItems": [
     { "productId": 123, "quantity": 1 }
   ]
 }</pre>
-      <p class="note">Redirect user to <code>checkoutUrl</code> in response.</p>
+      <p class="note">Redirect user to <code>checkoutUrl</code> in response (Mswipe Pay-By-Link page).</p>
     </div>
 
     <div class="block">
       <h2>3. Create order — variable product</h2>
-      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <p><span class="method post">POST</span><span class="url">/api/mswipe/create-order</span></p>
       <div class="label">Body</div>
       <pre>{
   "lineItems": [
@@ -155,11 +155,12 @@ X-API-Key: payu-pavokart-demo-key</pre>
     }
   ]
 }</pre>
+      <p class="note"><code>variationId</code> is required for variable products. Get IDs from <code>GET /products</code>.</p>
     </div>
 
     <div class="block">
       <h2>4. Create order — mixed cart</h2>
-      <p><span class="method post">POST</span><span class="url">/api/payu/create-order</span></p>
+      <p><span class="method post">POST</span><span class="url">/api/mswipe/create-order</span></p>
       <div class="label">Body</div>
       <pre>{
   "lineItems": [
@@ -171,38 +172,39 @@ X-API-Key: payu-pavokart-demo-key</pre>
 
     <div class="block">
       <h2>5. Payment status</h2>
-      <p><span class="method post">POST</span><span class="url">/api/payu/status</span></p>
+      <p><span class="method post">POST</span><span class="url">/api/mswipe/status</span></p>
       <div class="label">Full URL</div>
-      <pre>https://connect.pavokart.com/api/payu/status</pre>
+      <pre>https://connect.pavokart.com/api/mswipe/status</pre>
       <div class="label">Headers</div>
       <pre>Content-Type: application/json
 Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
       <div class="label">Body</div>
       <pre>{
-  "txnId": "PK7890T260628120001"
+  "txnId": "IPG000000021511"
 }</pre>
+      <p class="note">Use <code>txnId</code> from create-order response. Payment status: 1 = success, 0 = failed, 2 = pending.</p>
     </div>
 
     <div class="block">
       <h2>6. Notifications</h2>
-      <p><span class="method get">GET</span><span class="url">/api/payu/notifications?limit=20</span></p>
+      <p><span class="method get">GET</span><span class="url">/api/mswipe/notifications?limit=20</span></p>
       <div class="label">Full URL</div>
-      <pre>https://connect.pavokart.com/api/payu/notifications?limit=20</pre>
+      <pre>https://connect.pavokart.com/api/mswipe/notifications?limit=20</pre>
       <div class="label">Headers</div>
       <pre>Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
     </div>
 
     <div class="block">
       <h2>7. Initiate payment (amount only)</h2>
-      <p><span class="method post">POST</span><span class="url">/api/payu/initiate</span></p>
+      <p><span class="method post">POST</span><span class="url">/api/mswipe/initiate</span></p>
       <div class="label">Full URL</div>
-      <pre>https://connect.pavokart.com/api/payu/initiate</pre>
+      <pre>https://connect.pavokart.com/api/mswipe/initiate</pre>
       <div class="label">Headers</div>
       <pre>Content-Type: application/json
 Accept: application/json
-X-API-Key: payu-pavokart-demo-key</pre>
+X-API-Key: mswipe-pavokart-demo-key</pre>
       <div class="label">Body</div>
       <pre>{
   "requestAmount": 499.00,
@@ -210,16 +212,7 @@ X-API-Key: payu-pavokart-demo-key</pre>
 }</pre>
     </div>
 
-    <div class="block">
-      <h2>Payment result pages (customer-facing)</h2>
-      <p class="note">After PayU payment, customers are redirected here — not to pavokart.com shop.</p>
-      <p><span class="method get">GET</span><span class="url">/payment/success</span></p>
-      <pre>https://connect.pavokart.com/payment/success?txnId=...&amp;orderId=...</pre>
-      <p><span class="method get">GET</span><span class="url">/payment/failed</span></p>
-      <pre>https://connect.pavokart.com/payment/failed?txnId=...&amp;orderId=...</pre>
-    </div>
-
-    <div class="footer">connect.pavokart.com · v1.2.4</div>
+    <div class="footer">connect.pavokart.com · Mswipe PBL v1.0.2 · Pavokart production</div>
   </div>
 </body>
 </html>

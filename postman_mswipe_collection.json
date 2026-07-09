@@ -1,0 +1,157 @@
+{
+  "info": {
+    "name": "Mswipe PBL Middleware API",
+    "description": "Mswipe Pay-By-Link middleware v1.0.2\n\nProduction: https://connect.pavokart.com\n\nCreate-order: send lineItems only — Indian name, phone, email, address auto-generated.\nVariable products need variationId from GET /products.\n\nWebhook: POST https://connect.pavokart.com/webhook/mswipe",
+    "_postman_id": "b2c3d4e5-f6a7-8901-mswipe-middleware",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://connect.pavokart.com" },
+    { "key": "api_key", "value": "mswipe-pavokart-demo-key" },
+    { "key": "txn_id", "value": "" },
+    { "key": "order_id", "value": "" },
+    { "key": "checkout_url", "value": "" },
+    { "key": "callback_url", "value": "https://connect.pavokart.com/webhook/mswipe" },
+    { "key": "product_id", "value": "123" },
+    { "key": "parent_product_id", "value": "20600" },
+    { "key": "variation_id", "value": "20601" }
+  ],
+  "item": [
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "1) List products (page 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (!json || !json.data || !Array.isArray(json.data.products)) return;",
+                  "const simple = json.data.products.find(p => p.type === 'simple' && p.purchasable);",
+                  "if (simple) pm.collectionVariables.set('product_id', String(simple.id));",
+                  "const variable = json.data.products.find(p => p.type === 'variable' && p.variations && p.variations.length);",
+                  "if (variable) {",
+                  "  pm.collectionVariables.set('parent_product_id', String(variable.id));",
+                  "  pm.collectionVariables.set('variation_id', String(variable.variations[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/mswipe/products?page=1&per_page=50"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create order",
+      "item": [
+        {
+          "name": "2) Create order — simple product (auto Indian customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+                  "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
+                  "  if (json.data.checkoutUrl) pm.collectionVariables.set('checkout_url', json.data.checkoutUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/mswipe/create-order"
+          }
+        },
+        {
+          "name": "3) Create order — variable product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    {\n      \"productId\": {{parent_product_id}},\n      \"variationId\": {{variation_id}},\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/mswipe/create-order"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Status & legacy",
+      "item": [
+        {
+          "name": "4) Payment status",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txn_id}}\"\n}"
+            },
+            "url": "{{base_url}}/api/mswipe/status"
+          }
+        },
+        {
+          "name": "5) Initiate (amount only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestAmount\": 499.00,\n  \"productInfo\": \"Test payment\"\n}"
+            },
+            "url": "{{base_url}}/api/mswipe/initiate"
+          }
+        },
+        {
+          "name": "6) Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/mswipe/notifications?limit=20"
+          }
+        }
+      ]
+    }
+  ]
+}

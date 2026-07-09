@@ -104,10 +104,10 @@ class PayuService
             $txnId = $this->generateTxnId();
         }
 
-        if ($this->useProxy()) {
-            $callback = config('payu.callback_url') ?: url('/webhook/payu');
+        $paymentUrls = $this->resolvePaymentUrls($payload);
 
-            return $this->initiateViaProxy([
+        if ($this->useProxy()) {
+            return $this->initiateViaProxy(array_merge([
                 'txnId' => $txnId,
                 'requestAmount' => round($amount, 2),
                 'productInfo' => $payload['productInfo'] ?? $payload['remarks'] ?? 'Payment',
@@ -117,12 +117,10 @@ class PayuService
                 'address1' => $payload['address1'] ?? 'India',
                 'remarks' => $payload['remarks'] ?? '',
                 'udf1' => $payload['udf1'] ?? '',
-                'successCallbackUrl' => $callback,
-                'failureCallbackUrl' => $callback,
-            ]);
+            ], $paymentUrls));
         }
 
-        return $this->initiateDirect($txnId, $amount, $payload);
+        return $this->initiateDirect($txnId, $amount, array_merge($payload, $paymentUrls));
     }
 
     /**
@@ -200,6 +198,9 @@ class PayuService
         }
 
         $callback = config('payu.callback_url') ?: url('/webhook/payu');
+        $paymentUrls = $this->resolvePaymentUrls($payload);
+        $successReturn = $paymentUrls['successReturnUrl'];
+        $failureReturn = $paymentUrls['failureReturnUrl'];
         $firstName = (string) ($payload['firstName'] ?? $payload['display_name'] ?? 'Customer');
         $lastName = (string) ($payload['lastName'] ?? '');
         $phone = preg_replace('/\D+/', '', (string) ($payload['phone'] ?? '9999999999'));
@@ -240,9 +241,9 @@ class PayuService
                 'createOrder' => true,
             ],
             'callBackActions' => [
-                'successAction' => $callback,
-                'failureAction' => $callback,
-                'cancelAction' => $callback,
+                'successAction' => $successReturn,
+                'failureAction' => $failureReturn,
+                'cancelAction' => $failureReturn,
             ],
             'billingDetails' => $billing,
         ];
@@ -474,6 +475,7 @@ class PayuService
         }
 
         $callback = config('payu.callback_url') ?: url('/webhook/payu');
+        $paymentUrls = $this->resolvePaymentUrls($payload);
         $customer = isset($payload['customer']) && is_array($payload['customer']) ? $payload['customer'] : [];
         foreach (['firstName', 'lastName', 'email', 'phone', 'address1', 'city', 'state', 'zipCode', 'country'] as $field) {
             if (empty($customer[$field]) && ! empty($payload[$field])) {
@@ -484,12 +486,10 @@ class PayuService
             $customer['firstName'] = $payload['display_name'];
         }
 
-        $body = [
+        $body = array_merge([
             'lineItems' => $lineItems,
             'customer' => $customer,
-            'successCallbackUrl' => $callback,
-            'failureCallbackUrl' => $callback,
-        ];
+        ], $paymentUrls);
 
         $url = $this->proxyUrl.'/wp-json/payu/v1/create-order';
         $this->pushWpLog('create_order_request', ['url' => $url, 'lineItems' => $lineItems]);
@@ -544,9 +544,126 @@ class PayuService
                 'customer' => $d['customer'] ?? null,
                 'billingAddress' => $d['billingAddress'] ?? null,
                 'shippingAddress' => $d['shippingAddress'] ?? null,
+                'successRedirectUrl' => $paymentUrls['successRedirectUrl'] ?? null,
+                'failureRedirectUrl' => $paymentUrls['failureRedirectUrl'] ?? null,
+                'webhookCallbackUrl' => $callback,
                 'raw' => $d['raw'] ?? $d,
             ],
         ];
+    }
+
+    public function returnSuccessUrl(): string
+    {
+        $custom = trim((string) config('payu.return_success_url', ''));
+
+        return $custom !== '' ? rtrim($custom, '/') : url('/payu/return/success');
+    }
+
+    public function returnFailureUrl(): string
+    {
+        $custom = trim((string) config('payu.return_failure_url', ''));
+
+        return $custom !== '' ? rtrim($custom, '/') : url('/payu/return/failure');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{successReturnUrl: string, failureReturnUrl: string, successRedirectUrl: string, failureRedirectUrl: string}
+     */
+    public function resolvePaymentUrls(array $payload): array
+    {
+        $successReturn = trim((string) ($payload['successReturnUrl'] ?? ''));
+        $failureReturn = trim((string) ($payload['failureReturnUrl'] ?? ''));
+        $successRedirect = trim((string) ($payload['successRedirectUrl'] ?? ''));
+        $failureRedirect = trim((string) ($payload['failureRedirectUrl'] ?? ''));
+
+        if ($successReturn === '') {
+            $successReturn = $this->returnSuccessUrl();
+        }
+        if ($failureReturn === '') {
+            $failureReturn = $this->returnFailureUrl();
+        }
+        if ($successRedirect === '') {
+            $successRedirect = trim((string) config('payu.success_redirect_url', ''));
+        }
+        if ($failureRedirect === '') {
+            $failureRedirect = trim((string) config('payu.failure_redirect_url', ''));
+        }
+
+        return [
+            'successReturnUrl' => $successReturn,
+            'failureReturnUrl' => $failureReturn,
+            'successRedirectUrl' => $successRedirect,
+            'failureRedirectUrl' => $failureRedirect,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $params
+     * @return array{redirectUrl?: string, orderId?: int|null, paid?: bool}
+     */
+    public function processReturnOnWordPress(string $type, array $params): array
+    {
+        if (! $this->useProxy()) {
+            return [];
+        }
+
+        $url = $this->proxyUrl.'/wp-json/payu/v1/process-return';
+        try {
+            $response = $this->proxyHttp(20)->post($url, [
+                'type' => $type,
+                'params' => $params,
+            ]);
+            $res = $response->json();
+
+            return is_array($res) ? $res : [];
+        } catch (\Throwable $e) {
+            Log::error('PayU process-return failed', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $params
+     */
+    public function defaultUserRedirect(string $type, array $params, ?Transaction $transaction = null): string
+    {
+        $base = $type === 'success'
+            ? trim((string) config('payu.success_redirect_url', ''))
+            : trim((string) config('payu.failure_redirect_url', ''));
+
+        if ($base === '' || ! filter_var($base, FILTER_VALIDATE_URL)) {
+            return '';
+        }
+
+        return $this->appendReturnQuery($base, $type, $params, $transaction);
+    }
+
+    /**
+     * @param  array<string,mixed>  $params
+     */
+    public function appendReturnQuery(string $base, string $type, array $params, ?Transaction $transaction = null): string
+    {
+        $txnId = isset($params['txnid']) ? (string) $params['txnid'] : (isset($params['txnId']) ? (string) $params['txnId'] : '');
+        $status = isset($params['status']) ? (string) $params['status'] : ($type === 'success' ? 'success' : 'failed');
+        $query = [
+            'payment' => $type === 'success' ? 'success' : 'failed',
+            'status' => $status,
+        ];
+        if ($txnId !== '') {
+            $query['txnId'] = $txnId;
+        }
+        if (! empty($params['mihpayid'])) {
+            $query['paymentId'] = (string) $params['mihpayid'];
+        }
+        if ($transaction && $transaction->woocommerce_order_id) {
+            $query['orderId'] = (string) $transaction->woocommerce_order_id;
+        }
+
+        $separator = str_contains($base, '?') ? '&' : '?';
+
+        return $base.$separator.http_build_query($query);
     }
 
     private function sanitizeTxnId(string $txnId): string

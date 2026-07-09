@@ -5,19 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Models\WebhookNotification;
-use App\Services\PayuService;
+use App\Services\MswipeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class PayuController extends Controller
+class MswipeController extends Controller
 {
     public function __construct(
-        private PayuService $payuService
+        private MswipeService $mswipeService
     ) {}
 
-    /**
-     * GET /api/payu/products
-     */
     public function products(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -26,7 +23,7 @@ class PayuController extends Controller
             'search' => 'nullable|string|max:200',
         ]);
 
-        $result = $this->payuService->listProducts(
+        $result = $this->mswipeService->listProducts(
             (int) ($validated['page'] ?? 1),
             (int) ($validated['per_page'] ?? 50),
             (string) ($validated['search'] ?? '')
@@ -48,9 +45,6 @@ class PayuController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/payu/create-order
-     */
     public function createOrder(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -74,10 +68,6 @@ class PayuController extends Controller
             'phone' => 'nullable|string|max:20',
             'address1' => 'nullable|string|max:500',
             'callbackUrl' => 'nullable|url|max:500',
-            'successRedirectUrl' => 'nullable|url|max:500',
-            'failureRedirectUrl' => 'nullable|url|max:500',
-            'successReturnUrl' => 'nullable|url|max:500',
-            'failureReturnUrl' => 'nullable|url|max:500',
         ]);
 
         $client = $request->attributes->get('client');
@@ -91,7 +81,7 @@ class PayuController extends Controller
             ], 400);
         }
 
-        $result = $this->payuService->createOrder($validated);
+        $result = $this->mswipeService->createOrder($validated);
 
         if (! ($result['success'] ?? false)) {
             $response = [
@@ -119,13 +109,7 @@ class PayuController extends Controller
             'amount' => $data['amount'] ?? 0,
             'status' => $data['status'] ?? 'PENDING',
             'callback_url' => $callbackUrl,
-            'raw_response' => array_merge(
-                is_array($data['raw'] ?? null) ? $data['raw'] : (is_array($data) ? $data : []),
-                [
-                    'successRedirectUrl' => $data['successRedirectUrl'] ?? ($validated['successRedirectUrl'] ?? null),
-                    'failureRedirectUrl' => $data['failureRedirectUrl'] ?? ($validated['failureRedirectUrl'] ?? null),
-                ]
-            ),
+            'raw_response' => $data['raw'] ?? $data,
         ]);
 
         return response()->json([
@@ -136,6 +120,8 @@ class PayuController extends Controller
                 'orderId' => $data['orderId'] ?? null,
                 'orderKey' => $data['orderKey'] ?? null,
                 'txnId' => $data['txnId'] ?? null,
+                'transId' => $data['transId'] ?? null,
+                'invoiceId' => $data['invoiceId'] ?? null,
                 'paymentId' => $data['paymentId'] ?? null,
                 'checkoutUrl' => $data['checkoutUrl'] ?? null,
                 'paymentUrl' => $data['paymentUrl'] ?? null,
@@ -151,28 +137,20 @@ class PayuController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/payu/initiate
-     */
     public function initiate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'txnId' => 'nullable|string|max:50',
-            'txn_ref' => 'nullable|string|max:50',
             'requestAmount' => 'required|numeric|min:0.01',
+            'invoiceId' => 'nullable|string|max:50',
             'firstName' => 'nullable|string|max:200',
             'display_name' => 'nullable|string|max:200',
             'email' => 'nullable|email|max:200',
             'phone' => 'nullable|string|max:20',
-            'address1' => 'nullable|string|max:500',
             'productInfo' => 'nullable|string|max:500',
             'remarks' => 'nullable|string|max:500',
+            'addlnote1' => 'nullable|string|max:100',
             'udf1' => 'nullable|string|max:100',
             'callbackUrl' => 'nullable|url|max:500',
-            'successRedirectUrl' => 'nullable|url|max:500',
-            'failureRedirectUrl' => 'nullable|url|max:500',
-            'successReturnUrl' => 'nullable|url|max:500',
-            'failureReturnUrl' => 'nullable|url|max:500',
         ]);
 
         $client = $request->attributes->get('client');
@@ -186,7 +164,7 @@ class PayuController extends Controller
             ], 400);
         }
 
-        $result = $this->payuService->initiate($validated);
+        $result = $this->mswipeService->initiate($validated);
 
         if (! ($result['success'] ?? false)) {
             return response()->json([
@@ -200,18 +178,12 @@ class PayuController extends Controller
         Transaction::create([
             'client_id' => $client->id,
             'collect_ref' => $data['txnId'] ?? '',
-            'user_ref' => $validated['udf1'] ?? null,
+            'user_ref' => $validated['addlnote1'] ?? $validated['udf1'] ?? null,
             'transaction_id' => $data['paymentId'] ?? null,
             'amount' => $validated['requestAmount'],
             'status' => $data['status'] ?? 'PENDING',
             'callback_url' => $callbackUrl,
-            'raw_response' => array_merge(
-                is_array($data['raw'] ?? null) ? $data['raw'] : (is_array($data) ? $data : []),
-                [
-                    'successRedirectUrl' => $validated['successRedirectUrl'] ?? config('payu.success_redirect_url'),
-                    'failureRedirectUrl' => $validated['failureRedirectUrl'] ?? config('payu.failure_redirect_url'),
-                ]
-            ),
+            'raw_response' => $data['raw'] ?? $data,
         ]);
 
         return response()->json([
@@ -220,27 +192,28 @@ class PayuController extends Controller
             'respMessage' => 'Payment link generated',
             'data' => [
                 'txnId' => $data['txnId'] ?? null,
+                'transId' => $data['transId'] ?? null,
+                'invoiceId' => $data['invoiceId'] ?? null,
                 'paymentId' => $data['paymentId'] ?? null,
-                'checkoutUrl' => $data['checkoutUrl'] ?? ($data['paymentUrl'] ?? null),
-                'paymentUrl' => $data['paymentUrl'] ?? ($data['checkoutUrl'] ?? null),
+                'checkoutUrl' => $data['checkoutUrl'] ?? null,
+                'paymentUrl' => $data['paymentUrl'] ?? null,
                 'amount' => $data['amount'] ?? null,
                 'status' => $data['status'] ?? 'PENDING',
             ],
         ]);
     }
 
-    /**
-     * POST /api/payu/status
-     */
     public function status(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'txnId' => 'required_without:txn_ref|nullable|string|max:50',
-            'txn_ref' => 'required_without:txnId|nullable|string|max:50',
+            'txnId' => 'required_without_all:txn_ref,transId|nullable|string|max:50',
+            'txn_ref' => 'required_without_all:txnId,transId|nullable|string|max:50',
+            'transId' => 'required_without_all:txnId,txn_ref|nullable|string|max:200',
         ]);
 
-        $txnId = $validated['txnId'] ?? $validated['txn_ref'] ?? '';
-        $result = $this->payuService->status((string) $txnId);
+        $txnId = (string) ($validated['txnId'] ?? $validated['txn_ref'] ?? '');
+        $transId = (string) ($validated['transId'] ?? '');
+        $result = $this->mswipeService->status($txnId, $transId);
 
         if (! ($result['success'] ?? false)) {
             return response()->json([
@@ -259,9 +232,6 @@ class PayuController extends Controller
         ]);
     }
 
-    /**
-     * GET /api/payu/notifications
-     */
     public function notifications(Request $request): JsonResponse
     {
         $limit = min((int) $request->get('limit', 50), 100);

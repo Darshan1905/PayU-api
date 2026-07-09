@@ -18,6 +18,15 @@ class ClientSeeder extends Seeder
             ]
         );
 
-        $this->command->info('Demo client API key: payu-pavokart-demo-key');
+        Client::updateOrCreate(
+            ['api_key' => 'mswipe-pavokart-demo-key'],
+            [
+                'name' => 'Pavokart Mswipe demo client',
+                'callback_url' => 'https://pavokart.com/wp-json/mswipe/v1/callback',
+                'is_active' => true,
+            ]
+        );
+
+        $this->command->info('Demo API keys: payu-pavokart-demo-key, mswipe-pavokart-demo-key');
     }
 }

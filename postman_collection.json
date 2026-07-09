@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "PayU Hosted Middleware API",
-    "description": "PayU Hosted Checkout middleware v1.2.2\n\nProduction: https://connect.pavokart.com\n\nCreate-order: send lineItems only — Indian name, phone, email, address auto-generated.\nVariable products need variationId from GET /products.",
+    "description": "PayU Hosted Checkout middleware v1.2.4\n\nPayment pages:\n- Success: https://connect.pavokart.com/payment/success\n- Failed: https://connect.pavokart.com/payment/failed",
     "_postman_id": "a1b2c3d4-e5f6-7890-payu-middleware",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
