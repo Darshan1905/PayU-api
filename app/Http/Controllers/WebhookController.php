@@ -199,4 +199,108 @@ class WebhookController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Processed', 'paid' => $paid]);
     }
+
+    /**
+     * Airpay IPN / webhook relay.
+     * GET|POST /webhook/airpay
+     */
+    public function airpay(Request $request): JsonResponse
+    {
+        $body = $request->all();
+        if (! is_array($body) || $body === []) {
+            $decoded = json_decode($request->getContent() ?: '[]', true);
+            $body = is_array($decoded) ? $decoded : [];
+        }
+
+        $txnId = isset($body['orderid']) ? (string) $body['orderid'] : (isset($body['txnId']) ? (string) $body['txnId'] : null);
+        $paymentId = isset($body['ap_transactionid']) ? (string) $body['ap_transactionid'] : (isset($body['paymentId']) ? (string) $body['paymentId'] : null);
+        $statusRaw = $body['transaction_payment_status'] ?? $body['transaction_status'] ?? $body['status'] ?? null;
+
+        if (($txnId === null || $txnId === '') && ($paymentId === null || $paymentId === '')) {
+            Log::warning('Airpay webhook: missing orderid/ap_transactionid', ['keys' => array_keys($body)]);
+
+            return response()->json(['success' => false, 'message' => 'Missing reference'], 400);
+        }
+
+        $statusStr = is_scalar($statusRaw) ? (string) $statusRaw : null;
+        $paid = false;
+        if (isset($body['transaction_status']) && (int) $body['transaction_status'] === 200) {
+            $paid = true;
+        }
+        if ($statusStr !== null && in_array(strtoupper($statusStr), ['SUCCESS', 'AUTHORIZE', 'AUTHORIZATION', 'CAPTURE'], true)) {
+            $paid = true;
+        }
+
+        $notification = WebhookNotification::create([
+            'collect_ref' => is_string($txnId) ? $txnId : null,
+            'transaction_id' => $paymentId,
+            'status' => $statusStr,
+            'status_message' => isset($body['message']) ? (string) $body['message'] : null,
+            'utr' => isset($body['utr_no']) ? (string) $body['utr_no'] : (isset($body['rrn']) ? (string) $body['rrn'] : null),
+            'payment_mode' => isset($body['chmod']) ? (string) $body['chmod'] : null,
+            'request_amount' => isset($body['amount']) ? $body['amount'] : null,
+            'remarks' => isset($body['customvar']) ? (string) $body['customvar'] : null,
+            'raw_payload' => $body,
+            'processed' => false,
+        ]);
+
+        $transaction = Transaction::findByRef(
+            is_string($txnId) ? $txnId : null,
+            $paymentId
+        );
+
+        try {
+            $proxyUrl = config('airpay.proxy_url');
+            $proxySecret = trim((string) config('airpay.proxy_secret'));
+            if ($proxyUrl) {
+                $req = Http::timeout(15)->acceptJson()->asJson();
+                if ($proxySecret !== '') {
+                    $req = $req->withHeader('X-Airpay-Middleware-Secret', $proxySecret);
+                }
+                $req->post(rtrim((string) $proxyUrl, '/').'/wp-json/airpay/v1/ipn', $body);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Airpay WP IPN proxy failed', ['error' => $e->getMessage()]);
+        }
+
+        if (! $transaction) {
+            Log::info('Airpay webhook: no matching transaction', ['txnId' => $txnId, 'paymentId' => $paymentId]);
+
+            return response()->json(['success' => true, 'message' => 'Notification received', 'paid' => $paid]);
+        }
+
+        $callbackUrl = $transaction->callback_url ?: $transaction->client->callback_url;
+
+        $payload = [
+            'txnId' => $transaction->collect_ref,
+            'paymentId' => $paymentId ?? $transaction->transaction_id,
+            'requestAmount' => $body['amount'] ?? $transaction->amount,
+            'paymentMode' => $body['chmod'] ?? null,
+            'utr' => $body['utr_no'] ?? $body['rrn'] ?? null,
+            'status' => $statusStr,
+            'statusMessage' => $body['message'] ?? null,
+            'paid' => $paid,
+        ];
+
+        $transaction->update([
+            'status' => $statusStr ?: $transaction->status,
+            'status_message' => $payload['statusMessage'],
+            'utr' => $payload['utr'],
+            'payment_mode' => is_string($payload['paymentMode'] ?? null) ? $payload['paymentMode'] : $transaction->payment_mode,
+            'transaction_id' => $paymentId ?? $transaction->transaction_id,
+            'raw_response' => $body,
+        ]);
+
+        if (! empty($callbackUrl) && filter_var($callbackUrl, FILTER_VALIDATE_URL)) {
+            $notification->update(['processed' => true, 'forwarded_to' => $callbackUrl]);
+            try {
+                $response = Http::timeout(15)->asJson()->post($callbackUrl, $payload);
+                Log::info('Airpay webhook forwarded', ['callback_url' => $callbackUrl, 'http' => $response->status()]);
+            } catch (\Throwable $e) {
+                Log::error('Airpay webhook forward failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Processed', 'paid' => $paid]);
+    }
 }

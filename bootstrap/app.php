@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AirpayReturnController;
 use App\Http\Controllers\PayuReturnController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Foundation\Application;
@@ -18,10 +19,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->name('payu.return.success');
             Route::middleware('web')->match(['GET', 'POST'], '/payu/return/failure', [PayuReturnController::class, 'failure'])
                 ->name('payu.return.failure');
+            Route::middleware('web')->match(['GET', 'POST'], '/airpay/return/success', [AirpayReturnController::class, 'success'])
+                ->name('airpay.return.success');
+            Route::middleware('web')->match(['GET', 'POST'], '/airpay/return/failure', [AirpayReturnController::class, 'failure'])
+                ->name('airpay.return.failure');
             Route::middleware('api')->post('/webhook/payu', [WebhookController::class, 'payu'])
                 ->name('webhook.payu');
             Route::middleware('api')->post('/webhook/mswipe', [WebhookController::class, 'mswipe'])
                 ->name('webhook.mswipe');
+            Route::middleware('api')->match(['GET', 'POST'], '/webhook/airpay', [WebhookController::class, 'airpay'])
+                ->name('webhook.airpay');
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

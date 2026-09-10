@@ -27,6 +27,15 @@ class ClientSeeder extends Seeder
             ]
         );
 
-        $this->command->info('Demo API keys: payu-pavokart-demo-key, mswipe-pavokart-demo-key');
+        Client::updateOrCreate(
+            ['api_key' => 'airpay-pavokart-demo-key'],
+            [
+                'name' => 'Pavokart Airpay demo client',
+                'callback_url' => 'https://pavokart.com/wp-json/airpay/v1/ipn',
+                'is_active' => true,
+            ]
+        );
+
+        $this->command->info('Demo API keys: payu-pavokart-demo-key, mswipe-pavokart-demo-key, airpay-pavokart-demo-key');
     }
 }

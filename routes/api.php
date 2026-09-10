@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AirpayController;
 use App\Http\Controllers\Api\MswipeController;
 use App\Http\Controllers\Api\PayuController;
 use Illuminate\Support\Facades\Route;
@@ -18,4 +19,10 @@ Route::middleware(['ip.whitelist', 'api.key.auth'])->prefix('mswipe')->group(fun
     Route::post('/initiate', [MswipeController::class, 'initiate']);
     Route::post('/status', [MswipeController::class, 'status']);
     Route::get('/notifications', [MswipeController::class, 'notifications']);
+});
+
+Route::middleware(['ip.whitelist', 'api.key.auth'])->prefix('airpay')->group(function () {
+    Route::post('/initiate', [AirpayController::class, 'initiate']);
+    Route::post('/status', [AirpayController::class, 'status']);
+    Route::get('/notifications', [AirpayController::class, 'notifications']);
 });

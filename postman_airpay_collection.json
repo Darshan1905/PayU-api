@@ -1,0 +1,91 @@
+{
+  "info": {
+    "name": "Airpay Middleware API (local + prod)",
+    "description": "Airpay Simple Transaction\n\nLOCAL: base_url = http://127.0.0.1:8000\nPROD:  base_url = https://connect.pavokart.com\n\nAuth header: X-API-Key: airpay-pavokart-demo-key\n\n1) Initiate → open checkoutUrl in browser\n2) Status with txnId\n3) Notifications\n4) Webhook simulation",
+    "_postman_id": "a1rpay00-f6a7-8901-airpay-middleware",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "api_key", "value": "airpay-pavokart-demo-key" },
+    { "key": "txn_id", "value": "" },
+    { "key": "checkout_url", "value": "" },
+    { "key": "callback_url", "value": "http://127.0.0.1:8000/webhook/airpay" }
+  ],
+  "item": [
+    {
+      "name": "1) Initiate payment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+              "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+              "  if (url) pm.collectionVariables.set('checkout_url', url);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestAmount\": 10.00,\n  \"firstName\": \"Rahul\",\n  \"lastName\": \"Sharma\",\n  \"email\": \"rahul@example.com\",\n  \"phone\": \"9876543210\",\n  \"callbackUrl\": \"{{callback_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/airpay/initiate"
+      }
+    },
+    {
+      "name": "2) Payment status",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"txnId\": \"{{txn_id}}\"\n}"
+        },
+        "url": "{{base_url}}/api/airpay/status"
+      }
+    },
+    {
+      "name": "3) Notifications",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "url": "{{base_url}}/api/airpay/notifications?limit=20"
+      }
+    },
+    {
+      "name": "4) Webhook simulation (IPN)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderid\": \"{{txn_id}}\",\n  \"ap_transactionid\": \"123456\",\n  \"amount\": \"10.00\",\n  \"transaction_status\": 200,\n  \"transaction_payment_status\": \"SUCCESS\",\n  \"message\": \"Success\",\n  \"chmod\": \"pg\",\n  \"merchant_id\": \"370405\",\n  \"ap_SecureHash\": \"0\"\n}"
+        },
+        "url": "{{base_url}}/webhook/airpay"
+      }
+    }
+  ]
+}
