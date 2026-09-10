@@ -36,6 +36,14 @@ class AirpayController extends Controller
         ]);
 
         $client = $request->attributes->get('client');
+        if (! $client) {
+            return response()->json([
+                'status' => false,
+                'respCode' => 4010,
+                'respMessage' => 'Invalid API key / client.',
+            ], 401);
+        }
+
         $callbackUrl = $validated['callbackUrl'] ?? $client->callback_url;
 
         if (empty($callbackUrl)) {
@@ -46,7 +54,17 @@ class AirpayController extends Controller
             ], 400);
         }
 
-        $result = $this->airpayService->initiate($validated);
+        try {
+            $result = $this->airpayService->initiate($validated);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => false,
+                'respCode' => 5000,
+                'respMessage' => 'Initiate crashed: '.$e->getMessage(),
+            ], 500);
+        }
 
         if (! ($result['success'] ?? false)) {
             return response()->json([
@@ -56,23 +74,37 @@ class AirpayController extends Controller
             ], 400);
         }
 
-        $data = $result['data'];
-        Transaction::create([
-            'client_id' => $client->id,
-            'collect_ref' => $data['txnId'] ?? '',
-            'user_ref' => $validated['udf1'] ?? null,
-            'transaction_id' => null,
-            'amount' => $validated['requestAmount'],
-            'status' => $data['status'] ?? 'PENDING',
-            'callback_url' => $callbackUrl,
-            'raw_response' => array_merge(
-                is_array($data['raw'] ?? null) ? $data['raw'] : (is_array($data) ? $data : []),
-                [
-                    'successRedirectUrl' => $data['successRedirectUrl'] ?? ($validated['successRedirectUrl'] ?? null),
-                    'failureRedirectUrl' => $data['failureRedirectUrl'] ?? ($validated['failureRedirectUrl'] ?? null),
-                ]
-            ),
-        ]);
+        $data = $result['data'] ?? [];
+        try {
+            Transaction::create([
+                'client_id' => $client->id,
+                'collect_ref' => $data['txnId'] ?? '',
+                'user_ref' => $validated['udf1'] ?? null,
+                'transaction_id' => null,
+                'amount' => $validated['requestAmount'],
+                'status' => $data['status'] ?? 'PENDING',
+                'callback_url' => $callbackUrl,
+                'raw_response' => array_merge(
+                    is_array($data['raw'] ?? null) ? $data['raw'] : (is_array($data) ? $data : []),
+                    [
+                        'successRedirectUrl' => $data['successRedirectUrl'] ?? ($validated['successRedirectUrl'] ?? null),
+                        'failureRedirectUrl' => $data['failureRedirectUrl'] ?? ($validated['failureRedirectUrl'] ?? null),
+                    ]
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => false,
+                'respCode' => 5001,
+                'respMessage' => 'Payment created on Airpay but DB save failed: '.$e->getMessage(),
+                'data' => [
+                    'txnId' => $data['txnId'] ?? null,
+                    'checkoutUrl' => $data['checkoutUrl'] ?? null,
+                ],
+            ], 500);
+        }
 
         return response()->json([
             'status' => true,

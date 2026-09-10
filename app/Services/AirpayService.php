@@ -99,13 +99,35 @@ class AirpayService
 
         $url = $this->proxyUrl.'/wp-json/airpay/v1/initiate-payment';
         $this->pushWpLog('initiate_request', ['url' => $url, 'body' => $body]);
-        $response = $this->proxyHttp(45)->post($url, $body);
+        try {
+            $response = $this->proxyHttp(45)->post($url, $body);
+        } catch (\Throwable $e) {
+            Log::error('Airpay initiate proxy failed', ['url' => $url, 'error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'message' => 'WordPress proxy unreachable: '.$e->getMessage(),
+            ];
+        }
         $code = $response->status();
         $res = $response->json();
         $this->pushWpLog('initiate_response', ['http_code' => $code, 'body' => is_array($res) ? $res : $response->body()]);
 
+        if ($code === 403) {
+            return [
+                'success' => false,
+                'message' => 'WordPress rejected middleware secret. Match AIRPAY_PROXY_SECRET with WooCommerce → Airpay → Middleware proxy secret.',
+                'http_code' => $code,
+            ];
+        }
         if (! is_array($res)) {
-            return ['success' => false, 'message' => sprintf('Invalid proxy response (HTTP %d).', $code), 'http_code' => $code];
+            $snippet = substr((string) $response->body(), 0, 200);
+
+            return [
+                'success' => false,
+                'message' => sprintf('Invalid proxy response (HTTP %d). %s', $code, $snippet !== '' ? $snippet : 'Empty body — is the Airpay plugin active on WordPress?'),
+                'http_code' => $code,
+            ];
         }
         if (empty($res['success'])) {
             return [

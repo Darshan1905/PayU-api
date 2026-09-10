@@ -1,16 +1,16 @@
 {
   "info": {
-    "name": "Airpay Middleware API (local + prod)",
-    "description": "Airpay Simple Transaction\n\nLOCAL: base_url = http://127.0.0.1:8000\nPROD:  base_url = https://connect.pavokart.com\n\nAuth header: X-API-Key: airpay-pavokart-demo-key\n\n1) Initiate → open checkoutUrl in browser\n2) Status with txnId\n3) Notifications\n4) Webhook simulation",
+    "name": "Airpay Middleware API",
+    "description": "Airpay Simple Transaction — LIVE\n\nBase: https://connect.pavokart.com\nAuth: X-API-Key: airpay-pavokart-demo-key\n\n1) Initiate → open checkoutUrl in browser\n2) Status with txnId\n3) Notifications\n4) Webhook simulation",
     "_postman_id": "a1rpay00-f6a7-8901-airpay-middleware",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "base_url", "value": "https://connect.pavokart.com" },
     { "key": "api_key", "value": "airpay-pavokart-demo-key" },
     { "key": "txn_id", "value": "" },
     { "key": "checkout_url", "value": "" },
-    { "key": "callback_url", "value": "http://127.0.0.1:8000/webhook/airpay" }
+    { "key": "callback_url", "value": "https://connect.pavokart.com/webhook/airpay" }
   ],
   "item": [
     {

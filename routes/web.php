@@ -4,7 +4,11 @@ use App\Http\Controllers\PaymentPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json([
+        'ok' => true,
+        'service' => 'PayU-api middleware',
+        'gateways' => ['payu', 'mswipe', 'airpay'],
+    ]);
 });
 
 Route::get('/payment/success', [PaymentPageController::class, 'success'])->name('payment.success');
