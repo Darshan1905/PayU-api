@@ -1,8 +1,8 @@
 {
   "info": {
     "name": "Mswipe PBL Middleware API",
-    "description": "Mswipe Pay-By-Link middleware v1.0.2\n\nProduction: https://connect.pavokart.com\n\nCreate-order: send lineItems only — Indian name, phone, email, address auto-generated.\nVariable products need variationId from GET /products.\n\nWebhook: POST https://connect.pavokart.com/webhook/mswipe",
-    "_postman_id": "b2c3d4e5-f6a7-8901-mswipe-middleware",
+    "description": "Mswipe Pay-By-Link middleware v1.0.3\n\nProduction base URL: https://connect.pavokart.com\n(Same domain as PayU — Mswipe routes proxied to mswipe-api)\n\nAuth: X-API-Key: mswipe-pavokart-demo-key (+ IP whitelist)\n\nCreate-order: send lineItems only — Indian name, phone, address auto-generated.\nAuto emails always use @gmail.com.\nVariable products need variationId from GET /products.\n\nWebhook: POST https://connect.pavokart.com/webhook/mswipe",
+    "_postman_id": "b2c3d4e5-f6a7-8901-mswipe-middleware-v103",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -49,6 +49,17 @@
             ],
             "url": "{{base_url}}/api/mswipe/products?page=1&per_page=50"
           }
+        },
+        {
+          "name": "1b) List products (search)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "url": "{{base_url}}/api/mswipe/products?page=1&per_page=50&search="
+          }
         }
       ]
     },
@@ -67,7 +78,8 @@
                   "if (json && json.data) {",
                   "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
                   "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
-                  "  if (json.data.checkoutUrl) pm.collectionVariables.set('checkout_url', json.data.checkoutUrl);",
+                  "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+                  "  if (url) pm.collectionVariables.set('checkout_url', url);",
                   "}"
                 ]
               }
@@ -89,6 +101,23 @@
         },
         {
           "name": "3) Create order — variable product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+                  "  if (json.data.orderId) pm.collectionVariables.set('order_id', String(json.data.orderId));",
+                  "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+                  "  if (url) pm.collectionVariables.set('checkout_url', url);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -102,11 +131,27 @@
             },
             "url": "{{base_url}}/api/mswipe/create-order"
           }
+        },
+        {
+          "name": "3b) Create order — mixed cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineItems\": [\n    { \"productId\": {{product_id}}, \"quantity\": 1 },\n    {\n      \"productId\": {{parent_product_id}},\n      \"variationId\": {{variation_id}},\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/mswipe/create-order"
+          }
         }
       ]
     },
     {
-      "name": "Status & legacy",
+      "name": "Status & initiate",
       "item": [
         {
           "name": "4) Payment status",
@@ -126,6 +171,22 @@
         },
         {
           "name": "5) Initiate (amount only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data) {",
+                  "  if (json.data.txnId) pm.collectionVariables.set('txn_id', json.data.txnId);",
+                  "  const url = json.data.checkoutUrl || json.data.paymentUrl;",
+                  "  if (url) pm.collectionVariables.set('checkout_url', url);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -149,6 +210,27 @@
               { "key": "X-API-Key", "value": "{{api_key}}" }
             ],
             "url": "{{base_url}}/api/mswipe/notifications?limit=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook",
+      "item": [
+        {
+          "name": "7) Webhook simulation (Mswipe callback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txn_id}}\",\n  \"Payment_Status\": 1,\n  \"Amount\": \"499.00\",\n  \"UTR\": \"TESTUTR123\",\n  \"Payment_Mode\": \"UPI\"\n}"
+            },
+            "url": "{{base_url}}/webhook/mswipe",
+            "description": "No X-API-Key. Simulates Mswipe calling the middleware webhook."
           }
         }
       ]
