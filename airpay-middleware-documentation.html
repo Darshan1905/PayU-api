@@ -6,51 +6,198 @@
   <title>Airpay Middleware API — connect.pavokart.com</title>
   <style>
     :root {
-      --bg: #f8fafc; --card: #fff; --text: #1e293b; --muted: #64748b;
-      --border: #e2e8f0; --accent: #0369a1; --code-bg: #0f172a; --code-text: #e2e8f0;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #0369a1;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
     .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 48px; }
     h1 { font-size: 26px; margin: 0 0 6px; }
     .sub { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
-    .block { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
-    .method { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-right: 8px; color: #fff; }
+    .block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+      break-inside: avoid;
+    }
+    h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    .method {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 8px;
+      color: #fff;
+      vertical-align: middle;
+    }
     .method.get { background: #059669; }
     .method.post { background: #2563eb; }
-    .url { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--accent); word-break: break-all; }
-    .label { font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; }
-    pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: 14px; border-radius: 8px; overflow: auto; font-size: 13px; }
-    .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-    .footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+    .url {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    pre {
+      margin: 0;
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 14px;
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+    code.inline {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 24px;
+    }
+    .print-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .print-bar button {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    @media print {
+      body { background: #fff; font-size: 12px; }
+      .wrap { max-width: none; padding: 0; }
+      .print-bar { display: none !important; }
+      .block {
+        border: 1px solid #ccc;
+        border-radius: 0;
+        box-shadow: none;
+        page-break-inside: avoid;
+      }
+      pre {
+        background: #f5f5f5 !important;
+        color: #111 !important;
+        border: 1px solid #ddd;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .method { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      a { color: inherit; text-decoration: none; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <div class="print-bar">
+      <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
     <h1>Airpay Middleware API</h1>
-    <p class="sub">Base URL: <strong>https://connect.pavokart.com</strong> · API Key: <strong>airpay-pavokart-demo-key</strong> · Simple Transaction v1.0.0</p>
+    <p class="sub">
+      Base URL: <strong>https://connect.pavokart.com</strong>
+      &nbsp;·&nbsp; API Key: <strong>airpay-pavokart-demo-key</strong>
+      &nbsp;·&nbsp; Simple Transaction v1.0.2
+    </p>
 
     <div class="block">
       <h2>Overview</h2>
-      <p class="note" style="margin-top:0;">Same domain as PayU/Mswipe. Airpay Simple Transaction redirects the customer to Airpay’s payment page. No auto customer generator.</p>
+      <p class="note" style="margin-top:0;">
+        Same domain as PayU / Mswipe (<code class="inline">connect.pavokart.com</code>).
+        Flow: Client → Middleware → WordPress (pavokart.com) → Airpay OAuth + hosted checkout →
+        customer pays on <code class="inline">payments.airpay.co.in</code> → return / IPN.
+        No auto name/address generator — send customer fields in the request (or use WooCommerce checkout).
+      </p>
       <table>
         <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
-        <tr><td>POST</td><td>/api/airpay/initiate</td><td>Create payment redirect URL</td></tr>
+        <tr><td>POST</td><td>/api/airpay/initiate</td><td>Create hosted payment redirect URL</td></tr>
         <tr><td>POST</td><td>/api/airpay/status</td><td>Verify payment status</td></tr>
-        <tr><td>GET</td><td>/api/airpay/notifications</td><td>Webhook log</td></tr>
+        <tr><td>GET</td><td>/api/airpay/notifications</td><td>Webhook / IPN log</td></tr>
         <tr><td>POST</td><td>/webhook/airpay</td><td>Airpay IPN (no API key)</td></tr>
       </table>
     </div>
 
     <div class="block">
-      <h2>Headers</h2>
+      <h2>API Key</h2>
+      <pre>X-API-Key: airpay-pavokart-demo-key</pre>
+      <p class="note">Required on every <code class="inline">/api/airpay/*</code> request. IP whitelist also applies. Webhook does not use API key.</p>
+    </div>
+
+    <div class="block">
+      <h2>Headers (all API requests)</h2>
       <pre>Accept: application/json
-X-API-Key: airpay-pavokart-demo-key
-Content-Type: application/json</pre>
-      <p class="note">IP whitelist also applies. Webhook does not use API key.</p>
+X-API-Key: airpay-pavokart-demo-key</pre>
+      <p class="note">For POST requests also add: <code class="inline">Content-Type: application/json</code></p>
+    </div>
+
+    <div class="block">
+      <h2>Architecture</h2>
+      <pre>Client / Postman / Checkout
+  → https://connect.pavokart.com/api/airpay/*
+  → https://pavokart.com/wp-json/airpay/v1/*
+  → Airpay OAuth + Simple Transaction form
+  → https://payments.airpay.co.in/pay/v4/?token=...
+  → return: /airpay/return/success|failure
+  → IPN: /webhook/airpay</pre>
     </div>
 
     <div class="block">
@@ -58,40 +205,163 @@ Content-Type: application/json</pre>
       <p><span class="method post">POST</span><span class="url">/api/airpay/initiate</span></p>
       <div class="label">Full URL</div>
       <pre>https://connect.pavokart.com/api/airpay/initiate</pre>
+      <div class="label">Headers</div>
+      <pre>Content-Type: application/json
+Accept: application/json
+X-API-Key: airpay-pavokart-demo-key</pre>
       <div class="label">Body</div>
       <pre>{
-  "requestAmount": 499.00,
+  "requestAmount": 10.00,
   "firstName": "Rahul",
   "lastName": "Sharma",
   "email": "rahul@example.com",
   "phone": "9876543210",
-  "callbackUrl": "https://your-app.com/webhook"
+  "callbackUrl": "https://pavokart.com/wp-json/airpay/v1/ipn"
 }</pre>
-      <p class="note">Open <code>checkoutUrl</code> from the response. Customer is redirected to Airpay hosted page.</p>
+      <div class="label">Optional fields</div>
+      <pre>txnId, address1, udf1,
+successRedirectUrl, failureRedirectUrl,
+successReturnUrl, failureReturnUrl, returnUrl</pre>
+      <div class="label">Success response (shape)</div>
+      <pre>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Payment link generated",
+  "data": {
+    "txnId": "AP123T250910120000",
+    "checkoutUrl": "https://pavokart.com/wp-json/airpay/v1/redirect?t=...",
+    "paymentUrl": "https://pavokart.com/wp-json/airpay/v1/redirect?t=...",
+    "amount": "10.00",
+    "status": "PENDING"
+  }
+}</pre>
+      <p class="note">Open <code class="inline">checkoutUrl</code> (or <code class="inline">paymentUrl</code>) in the browser. Customer is redirected to Airpay hosted payment page (UPI / Net Banking / Wallets / EMI as enabled on the merchant).</p>
     </div>
 
     <div class="block">
       <h2>2. Payment status</h2>
       <p><span class="method post">POST</span><span class="url">/api/airpay/status</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/airpay/status</pre>
+      <div class="label">Headers</div>
+      <pre>Content-Type: application/json
+Accept: application/json
+X-API-Key: airpay-pavokart-demo-key</pre>
       <div class="label">Body</div>
       <pre>{
   "txnId": "AP123T250910120000"
+}</pre>
+      <p class="note">You may also send <code class="inline">orderid</code> instead of <code class="inline">txnId</code>. Use the id returned from initiate.</p>
+      <div class="label">Success response (shape)</div>
+      <pre>{
+  "status": true,
+  "respCode": 2000,
+  "respMessage": "Transaction status fetched successfully",
+  "paid": true,
+  "data": {
+    "txnId": "AP123T250910120000",
+    "paymentId": "123456",
+    "status": "success"
+  }
 }</pre>
     </div>
 
     <div class="block">
       <h2>3. Notifications</h2>
       <p><span class="method get">GET</span><span class="url">/api/airpay/notifications?limit=20</span></p>
+      <div class="label">Full URL</div>
+      <pre>https://connect.pavokart.com/api/airpay/notifications?limit=20</pre>
+      <div class="label">Headers</div>
+      <pre>Accept: application/json
+X-API-Key: airpay-pavokart-demo-key</pre>
+      <p class="note">Returns recent IPN / webhook notifications stored by the middleware. Max <code class="inline">limit</code> = 100.</p>
     </div>
 
     <div class="block">
-      <h2>4. Webhook / IPN</h2>
+      <h2>4. Webhook / IPN (Airpay → middleware)</h2>
       <p><span class="method post">POST</span><span class="url">/webhook/airpay</span></p>
+      <div class="label">Full URL</div>
       <pre>https://connect.pavokart.com/webhook/airpay</pre>
-      <p class="note">Configure this URL in the Airpay merchant panel as the IPN callback.</p>
+      <p class="note">Configure this URL in the Airpay merchant panel as the IPN callback. No <code class="inline">X-API-Key</code>. Middleware stores the notification, can update the transaction, and proxies to WordPress <code class="inline">/wp-json/airpay/v1/ipn</code>.</p>
+      <div class="label">Example payload (simulation)</div>
+      <pre>{
+  "orderid": "AP123T250910120000",
+  "ap_transactionid": "123456",
+  "amount": "10.00",
+  "transaction_status": 200,
+  "transaction_payment_status": "SUCCESS",
+  "message": "Success",
+  "chmod": "pg",
+  "merchant_id": "370405",
+  "ap_SecureHash": "0"
+}</pre>
     </div>
 
-    <div class="footer">connect.pavokart.com · Airpay Simple Transaction v1.0.0</div>
+    <div class="block">
+      <h2>Airpay panel configuration (avoid invalid domain)</h2>
+      <p class="note" style="margin-top:0;">
+        Domain URL, Response URLs, and IPN must all use the <strong>same host</strong>
+        (<code class="inline">pavokart.com</code>). Do not send <code class="inline">connect.pavokart.com</code>
+        as Response/IPN to Airpay.
+      </p>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>MID</td><td>370405</td></tr>
+        <tr><td>Domain URL</td><td>https://pavokart.com</td></tr>
+        <tr><td>Response URL (Success)</td><td>https://pavokart.com/wp-json/airpay/v1/callback/success</td></tr>
+        <tr><td>Response URL (Failed)</td><td>https://pavokart.com/wp-json/airpay/v1/callback/failure</td></tr>
+        <tr><td>IPN URL (Webhook)</td><td>https://pavokart.com/wp-json/airpay/v1/ipn</td></tr>
+      </table>
+      <div class="label">Copy / paste for Airpay</div>
+      <pre>MID- 370405
+Domain URL- https://pavokart.com
+Response URL (Success)- https://pavokart.com/wp-json/airpay/v1/callback/success
+Response URL (Failed)- https://pavokart.com/wp-json/airpay/v1/callback/failure
+IPN URL (Webhook)- https://pavokart.com/wp-json/airpay/v1/ipn</pre>
+      <p class="note">After payment, WordPress can still redirect the customer to <code class="inline">https://connect.pavokart.com/payment/success</code> or <code class="inline">/payment/failed</code> (customer page only — not registered with Airpay).</p>
+    </div>
+
+    <div class="block">
+      <h2>WordPress plugin mapping (Airpay panel → WooCommerce → Airpay)</h2>
+      <table>
+        <tr><th>Airpay panel</th><th>Plugin field</th></tr>
+        <tr><td>MID</td><td>MID (Merchant ID)</td></tr>
+        <tr><td>Username</td><td>Username</td></tr>
+        <tr><td>Password</td><td>Password</td></tr>
+        <tr><td>API Key</td><td>API Key (payment secret)</td></tr>
+        <tr><td>Client ID</td><td>Client ID</td></tr>
+        <tr><td>Secret Key</td><td>Secret Key (OAuth client secret)</td></tr>
+      </table>
+      <p class="note">Middleware proxy secret in WP must match Laravel <code class="inline">AIRPAY_PROXY_SECRET</code>. Merchant domain should be <code class="inline">https://pavokart.com</code>.</p>
+    </div>
+
+    <div class="block">
+      <h2>Postman</h2>
+      <p class="note" style="margin-top:0;">
+        Import <code class="inline">postman_airpay_collection.json</code> (or root <code class="inline">airpay-postman-collection.json</code>).
+      </p>
+      <table>
+        <tr><th>Variable</th><th>Value</th></tr>
+        <tr><td>base_url</td><td>https://connect.pavokart.com</td></tr>
+        <tr><td>api_key</td><td>airpay-pavokart-demo-key</td></tr>
+        <tr><td>callback_url</td><td>https://connect.pavokart.com/webhook/airpay</td></tr>
+      </table>
+      <p class="note">Run order: <strong>1) Initiate</strong> → open <code class="inline">checkoutUrl</code> → <strong>2) Status</strong> → <strong>3) Notifications</strong>.</p>
+    </div>
+
+    <div class="block">
+      <h2>Related docs</h2>
+      <p class="note" style="margin-top:0;">
+        Airpay Simple Transaction:
+        <a href="https://docs.airpay.co.in/v4/payments/simple-transaction/">https://docs.airpay.co.in/v4/payments/simple-transaction/</a><br />
+        OAuth2:
+        <a href="https://docs.airpay.co.in/v4/getting-started-guide/oauth2/">https://docs.airpay.co.in/v4/getting-started-guide/oauth2/</a><br />
+        IPN:
+        <a href="https://docs.airpay.co.in/v4/payments/ipn-callback/">https://docs.airpay.co.in/v4/payments/ipn-callback/</a>
+      </p>
+    </div>
+
+    <div class="footer">connect.pavokart.com · Airpay Simple Transaction v1.0.2 · Same domain as PayU / Mswipe</div>
   </div>
 </body>
 </html>

@@ -10,7 +10,7 @@
     { "key": "api_key", "value": "airpay-pavokart-demo-key" },
     { "key": "txn_id", "value": "" },
     { "key": "checkout_url", "value": "" },
-    { "key": "callback_url", "value": "https://connect.pavokart.com/webhook/airpay" }
+    { "key": "callback_url", "value": "https://pavokart.com/wp-json/airpay/v1/ipn" }
   ],
   "item": [
     {
