@@ -27,6 +27,7 @@ class PaymentPageController extends Controller
         $paymentId = $this->queryString($request, ['paymentId', 'mihpayid']);
         $status = $this->queryString($request, ['status', 'STATUS']) ?? ($type === 'success' ? 'success' : 'failed');
         $amount = $this->queryString($request, ['amount', 'requestAmount']);
+        $gateway = strtolower((string) ($this->queryString($request, ['gateway']) ?? ''));
 
         return [
             'txnId' => $txnId,
@@ -35,7 +36,18 @@ class PaymentPageController extends Controller
             'status' => $status,
             'amount' => $amount,
             'shopUrl' => (string) config('payu.shop_url', 'https://pavokart.com'),
+            'secureViaLabel' => $this->secureViaLabel($gateway),
         ];
+    }
+
+    private function secureViaLabel(string $gateway): string
+    {
+        return match ($gateway) {
+            'airpay' => 'Pavokart · Secure payment via Airpay',
+            'mswipe' => 'Pavokart · Secure payment via Mswipe',
+            'payu' => 'Pavokart · Secure payment via PayU',
+            default => 'Pavokart · Secure payment',
+        };
     }
 
     /**

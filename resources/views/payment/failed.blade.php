@@ -35,6 +35,6 @@
   @endif
 
   <a class="btn" href="{{ $shopUrl }}">Try Again</a>
-  <p class="footer">Pavokart · Secure payment via PayU</p>
+  <p class="footer">{{ $secureViaLabel ?? 'Pavokart · Secure payment' }}</p>
 </div>
 @endsection

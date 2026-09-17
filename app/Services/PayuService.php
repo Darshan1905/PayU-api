@@ -650,6 +650,7 @@ class PayuService
         $query = [
             'payment' => $type === 'success' ? 'success' : 'failed',
             'status' => $status,
+            'gateway' => 'payu',
         ];
         if ($txnId !== '') {
             $query['txnId'] = $txnId;
